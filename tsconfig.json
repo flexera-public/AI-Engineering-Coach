@@ -12,6 +12,6 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["src/**/*.ts"],
+  "include": ["src/**/*.ts", "customization/src/**/*.ts"],
   "exclude": ["node_modules", "dist"]
 }

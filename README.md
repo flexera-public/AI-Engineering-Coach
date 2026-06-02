@@ -10,6 +10,9 @@ Analyze your AI coding assistant usage — any harness, one dashboard.
 <img alt="VS Code 1.115+" src="https://img.shields.io/badge/VS%20Code-1.115%2B-007ACC">
 </p>
 
+> This repository is maintained as a Flexera fork of `microsoft/AI-Engineering-Coach`.
+> Keep fork-specific code, assets, and settings under [`customization/`](customization/README.md).
+
 <br>
 
 <p align="center">
@@ -109,7 +112,7 @@ Prerequisites:
 Steps:
 
 ```bash
-git clone https://github.com/microsoft/ai-engineering-coach.git
+git clone https://github.com/flexera-public/AI-Engineering-Coach.git
 cd ai-engineering-coach
 npm ci
 npm run package
