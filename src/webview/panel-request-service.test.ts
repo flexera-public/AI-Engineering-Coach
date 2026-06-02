@@ -205,7 +205,7 @@ describe('PanelRequestService discoverCatalog', () => {
     });
   });
 
-  it('returns an error when AI catalog triage fails', async () => {
+  it('returns deterministic catalog picks when AI catalog triage fails', async () => {
     callLlmJsonMock.mockRejectedValue(new Error('model unavailable'));
 
     const { service, messages } = createService();
@@ -252,7 +252,17 @@ describe('PanelRequestService discoverCatalog', () => {
       type: 'response',
       id: 'triage-1',
       data: {
-        error: 'model unavailable',
+        items: [{
+          id: 'skill:release',
+          kind: 'skill',
+          title: 'Release Automation',
+          description: 'Automate release packaging and publishing flows.',
+          category: 'automation',
+          path: 'skills/release/SKILL.md',
+          url: 'https://example.test/release',
+          relevanceScore: 100,
+          matchReasons: ['Matched your repeated workflow signals: release, packaging, automation.'],
+        }],
       },
     });
   });

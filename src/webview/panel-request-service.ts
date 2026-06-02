@@ -23,6 +23,7 @@ import {
   SCHEMA_RESOURCES,
   SCHEMA_TRIAGE,
 } from './panel-llm';
+import { buildFallbackCatalogPicks, shortlistCatalogCandidates } from '../../customization/src/webview/panel-catalog-triage';
 import { getCatalogItems } from './panel-catalog';
 import { validateDateFilter } from './panel-rpc';
 import { isNumber, isOptionalString, isRecord, isString, postError, postEvent, postResponse, RequestMessage } from './panel-shared';
@@ -787,13 +788,20 @@ Here are the top ${clusterSummaries.length} groups of similar prompts this devel
 
     const context = this.getUserContext();
     const workspace = isOptionalString(params.workspace) ? params.workspace : undefined;
+    const shortlistedCandidates = shortlistCatalogCandidates(candidates, {
+      languages: context.languages,
+      harnesses: context.harnesses,
+      topics: context.topics,
+      workspace,
+      clusters: clusterContext,
+    });
 
     const systemPrompt = `You are an expert at recommending GitHub Copilot customization files (skills, agents, instructions, hooks) for developers.
 
 You will receive:
 1. The developer's context: languages, harnesses, topics, and which workspace they are currently analyzing
 2. Their TOP REPEATED WORKFLOW PATTERNS with example prompts — these show exactly what tasks the developer performs repeatedly
-3. The catalog (${candidates.length} items) of skills, agents, instructions, and hooks
+3. A SHORTLISTED catalog (${shortlistedCandidates.length} items) of skills, agents, instructions, and hooks chosen from the full catalog based on matching signals
 
 Your job:
 1. Study the workflow patterns and example prompts carefully. These tell you EXACTLY what this developer does day-to-day.
@@ -815,8 +823,24 @@ Max 5 items. If fewer genuinely match, return fewer. If NOTHING matches well, re
 - Common topics: ${context.topics.join(', ') || 'unknown'}
 - Analyzing workspace: ${workspace || 'all workspaces'}${clusterSection}
 
-Catalog (${candidates.length} items):
-${JSON.stringify(candidates)}`;
+Shortlisted catalog (${shortlistedCandidates.length} items):
+${JSON.stringify(shortlistedCandidates)}`;
+
+    const enrichCatalogPicks = (picks: Array<{ id: string; reason: string }>) => picks.map(pick => {
+      const rawItem = itemsRaw.find(item => isRecord(item) && item.id === pick.id);
+      const raw = isRecord(rawItem) ? rawItem : undefined;
+      return {
+        id: pick.id,
+        kind: toText(raw?.kind),
+        title: toText(raw?.title),
+        description: toText(raw?.description),
+        category: toText(raw?.category),
+        path: toText(raw?.path),
+        url: toText(raw?.url),
+        relevanceScore: 100,
+        matchReasons: [pick.reason],
+      };
+    }).filter(item => item.title);
 
     try {
       const response = await callLlmJson<{ items: Array<{ id: string; reason: string }> }>([
@@ -824,25 +848,13 @@ ${JSON.stringify(candidates)}`;
         vscode.LanguageModelChatMessage.User(userPrompt),
       ], SCHEMA_CATALOG_PICKS);
       const picks = Array.isArray(response) ? response as unknown as typeof response['items'] : response.items ?? [];
-      const enriched = picks.map(pick => {
-        const rawItem = itemsRaw.find(item => isRecord(item) && item.id === pick.id);
-        const raw = isRecord(rawItem) ? rawItem : undefined;
-        return {
-          id: pick.id,
-          kind: toText(raw?.kind),
-          title: toText(raw?.title),
-          description: toText(raw?.description),
-          category: toText(raw?.category),
-          path: toText(raw?.path),
-          url: toText(raw?.url),
-          relevanceScore: 100,
-          matchReasons: [pick.reason],
-        };
-      }).filter(item => item.title);
+      const enriched = enrichCatalogPicks(picks);
 
       postResponse(this.webview, msg.id, { items: enriched });
     } catch (error: unknown) {
-      postError(this.webview, msg.id, error instanceof Error ? error.message : 'AI triage failed');
+      const fallbackPicks = buildFallbackCatalogPicks(shortlistedCandidates);
+      const enrichedFallback = enrichCatalogPicks(fallbackPicks);
+      postResponse(this.webview, msg.id, { items: enrichedFallback });
     }
   }
 
