@@ -68,8 +68,8 @@
       "activitybar": [
         {
           "id": "aiEngineerCoach",
-          "title": "AI Engineer Coach",
-          "icon": "$(graph)"
+          "title": "AI Engineer Coach - Flexera",
+          "icon": "customization/assets/icon.svg"
         }
       ]
     },
@@ -78,7 +78,8 @@
         {
           "id": "aiEngineerCoach.welcome",
           "name": "Dashboard",
-          "type": "webview"
+          "type": "webview",
+          "icon": "customization/assets/icon.svg"
         }
       ]
     },

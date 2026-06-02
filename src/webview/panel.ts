@@ -19,6 +19,7 @@ import { getRpcHandler } from './panel-rpc';
 import { PanelRequestService } from './panel-request-service';
 import { DashboardSidebarProvider } from './panel-sidebar';
 import { isRequestMessage, postResponse, errorResult } from './panel-shared';
+import { createCustomizationCatalogProvider } from '../../customization/src/webview/panel-customization';
 
 export { DashboardSidebarProvider } from './panel-sidebar';
 
@@ -44,10 +45,13 @@ export class DashboardPanel {
     this.panel = panel;
     this.extensionUri = extensionUri;
     this.globalState = context.globalState;
+    const getCustomizationRoot = () => this.extensionUri.fsPath;
+    const catalogProvider = createCustomizationCatalogProvider(getCustomizationRoot);
     this.requestService = new PanelRequestService(
       this.panel.webview,
       () => this.analyzer,
       () => this.parseResult,
+      catalogProvider,
     );
 
     runtimeDebug('panel', 'constructor');

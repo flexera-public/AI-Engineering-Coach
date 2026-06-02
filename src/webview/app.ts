@@ -16,6 +16,7 @@ import { renderTimeline } from './page-timeline';
 import { renderAntiPatterns } from './page-antipatterns';
 // page-rule-editor merged into page-antipatterns
 import { renderSkills } from './page-skills';
+import { renderCompanySkills } from '../../customization/src/webview/page-company-skills';
 import { renderConfigHealth } from './page-config';
 import { renderLevelUp } from './page-experiments';
 import { renderDataExplorer } from './page-data-explorer';
@@ -644,6 +645,7 @@ function renderPage(page: string): void {
     case 'anti-patterns': withErrorBoundary('Anti-Patterns', content, () => renderAntiPatterns(content, currentFilter)); break;
     case 'rule-editor': withErrorBoundary('Rule Editor', content, () => renderAntiPatterns(content, currentFilter)); break;
     case 'skills': withErrorBoundary('Skills', content, () => renderSkills(content, currentFilter)); break;
+    case 'company-skills': withErrorBoundary('Company Skills', content, () => renderCompanySkills(content, currentFilter)); break;
     case 'config-health': withErrorBoundary('Config Health', content, () => renderConfigHealth(content, currentFilter)); break;
     case 'level-up': withErrorBoundary('Level Up', content, () => renderLevelUp(content, currentFilter)); break;
     case 'data-explorer': withErrorBoundary('Data Explorer', content, () => renderDataExplorer(content, currentFilter)); break;

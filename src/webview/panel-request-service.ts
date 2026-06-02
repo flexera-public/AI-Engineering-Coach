@@ -23,6 +23,7 @@ import {
   SCHEMA_RESOURCES,
   SCHEMA_TRIAGE,
 } from './panel-llm';
+import { buildFallbackCatalogPicks, shortlistCatalogCandidates } from '../../customization/src/webview/panel-catalog-triage';
 import { getCatalogItems } from './panel-catalog';
 import { validateDateFilter } from './panel-rpc';
 import { isNumber, isOptionalString, isRecord, isString, postError, postEvent, postResponse, RequestMessage } from './panel-shared';
@@ -38,6 +39,7 @@ type CustomPanelMethodName =
   | 'installSkill'
   | 'installCatalogItem'
   | 'triageSkills'
+  | 'getCatalogAreas'
   | 'discoverCatalog'
   | 'triageCatalog'
   | 'reviewContextFiles'
@@ -47,6 +49,10 @@ type CustomPanelMethodName =
   | 'getSdlcGitHubData';
 
 type RequestHandler = (msg: RequestMessage) => void | Promise<void>;
+type CatalogProvider = {
+  getCatalogAreas(): unknown[];
+  discoverCatalogItems(params: Record<string, unknown>): Promise<unknown[] | undefined>;
+};
 type QuizDifficulty = 'easy' | 'medium' | 'hard';
 type QuizRequestContext = {
   languages: string[];
@@ -111,6 +117,7 @@ export class PanelRequestService {
     installSkill: this.handleInstallSkill.bind(this),
     installCatalogItem: this.handleInstallCatalogItem.bind(this),
     triageSkills: this.handleTriageSkills.bind(this),
+    getCatalogAreas: this.handleGetCatalogAreas.bind(this),
     discoverCatalog: this.handleDiscoverCatalog.bind(this),
     triageCatalog: this.handleTriageCatalog.bind(this),
     reviewContextFiles: this.handleReviewContextFiles.bind(this),
@@ -124,6 +131,7 @@ export class PanelRequestService {
     private readonly webview: vscode.Webview,
     private readonly getAnalyzer: () => Analyzer | undefined,
     private readonly getParseResult: () => ParseResult | undefined,
+    private readonly catalogProvider?: CatalogProvider,
   ) {}
 
   tryHandle(msg: RequestMessage): boolean {
@@ -730,31 +738,32 @@ Here are the top ${clusterSummaries.length} groups of similar prompts this devel
 
   private async handleDiscoverCatalog(msg: RequestMessage): Promise<void> {
     try {
-      const items = (await getCatalogItems()).map(item => ({
-        ...item,
-        relevanceScore: 0,
-        matchReasons: [],
-      }));
+      const params = (msg.params ?? {}) as Record<string, unknown>;
+      const customItems = this.catalogProvider
+        ? await this.catalogProvider.discoverCatalogItems(params)
+        : undefined;
+
+      const items = customItems
+        ? customItems
+        : (await getCatalogItems()).map(item => ({
+          ...item,
+          relevanceScore: 0,
+          matchReasons: [],
+        }));
+
       postResponse(this.webview, msg.id, { items, totalScanned: items.length });
     } catch (error: unknown) {
       postError(this.webview, msg.id, error instanceof Error ? error.message : 'Failed to fetch catalog');
     }
   }
 
+  private handleGetCatalogAreas(msg: RequestMessage): void {
+    postResponse(this.webview, msg.id, { areas: this.catalogProvider?.getCatalogAreas() ?? [] });
+  }
+
   private async handleTriageCatalog(msg: RequestMessage): Promise<void> {
     const params = (msg.params ?? {}) as Record<string, unknown>;
     const itemsRaw: unknown[] = Array.isArray(params.items) ? params.items : [];
-    const candidates = itemsRaw.map((item: unknown) => {
-      const entry = isRecord(item) ? item : {};
-      return {
-        id: toText(entry.id),
-        kind: toText(entry.kind),
-        title: toText(entry.title),
-        description: toText(entry.description).slice(0, 120),
-        category: toText(entry.category),
-      };
-    });
-
     const clustersRaw = Array.isArray(params.clusters) ? params.clusters : [];
     const clusterContext = clustersRaw.slice(0, 30).map((cluster: unknown) => {
       const entry = isRecord(cluster) ? cluster : {};
@@ -766,20 +775,38 @@ Here are the top ${clusterSummaries.length} groups of similar prompts this devel
       };
     });
 
+    const candidates = itemsRaw.map((item: unknown) => {
+      const entry = isRecord(item) ? item : {};
+      return {
+        id: toText(entry.id),
+        kind: toText(entry.kind),
+        title: toText(entry.title),
+        description: toText(entry.description).slice(0, 120),
+        category: toText(entry.category),
+      };
+    });
+
     const context = this.getUserContext();
     const workspace = isOptionalString(params.workspace) ? params.workspace : undefined;
+    const shortlistedCandidates = shortlistCatalogCandidates(candidates, {
+      languages: context.languages,
+      harnesses: context.harnesses,
+      topics: context.topics,
+      workspace,
+      clusters: clusterContext,
+    });
 
     const systemPrompt = `You are an expert at recommending GitHub Copilot customization files (skills, agents, instructions, hooks) for developers.
 
 You will receive:
 1. The developer's context: languages, harnesses, topics, and which workspace they are currently analyzing
 2. Their TOP REPEATED WORKFLOW PATTERNS with example prompts — these show exactly what tasks the developer performs repeatedly
-3. The FULL community catalog (${candidates.length} items) of skills, agents, instructions, and hooks
+3. A SHORTLISTED catalog (${shortlistedCandidates.length} items) of skills, agents, instructions, and hooks chosen from the full catalog based on matching signals
 
 Your job:
 1. Study the workflow patterns and example prompts carefully. These tell you EXACTLY what this developer does day-to-day.
 2. Consider the specific workspace being analyzed: ${workspace ? `"${workspace}"` : 'all workspaces'}.
-3. From the FULL catalog, find items that DIRECTLY help with the developer's actual repeated tasks or tech stack.
+3. From the catalog, find items that DIRECTLY help with the developer's actual repeated tasks or tech stack.
 4. REJECT items that don't match. A .NET skill is useless for someone building VS Code extensions. A React skill is useless for someone writing Python CLIs.
 5. For each pick, write a concrete reason referencing the developer's ACTUAL workflow patterns. Example: "You repeatedly package VS Code extensions (seen 47 times) — this skill automates VSIX packaging."
 
@@ -796,8 +823,24 @@ Max 5 items. If fewer genuinely match, return fewer. If NOTHING matches well, re
 - Common topics: ${context.topics.join(', ') || 'unknown'}
 - Analyzing workspace: ${workspace || 'all workspaces'}${clusterSection}
 
-Full catalog (${candidates.length} items):
-${JSON.stringify(candidates)}`;
+Shortlisted catalog (${shortlistedCandidates.length} items):
+${JSON.stringify(shortlistedCandidates)}`;
+
+    const enrichCatalogPicks = (picks: Array<{ id: string; reason: string }>) => picks.map(pick => {
+      const rawItem = itemsRaw.find(item => isRecord(item) && item.id === pick.id);
+      const raw = isRecord(rawItem) ? rawItem : undefined;
+      return {
+        id: pick.id,
+        kind: toText(raw?.kind),
+        title: toText(raw?.title),
+        description: toText(raw?.description),
+        category: toText(raw?.category),
+        path: toText(raw?.path),
+        url: toText(raw?.url),
+        relevanceScore: 100,
+        matchReasons: [pick.reason],
+      };
+    }).filter(item => item.title);
 
     try {
       const response = await callLlmJson<{ items: Array<{ id: string; reason: string }> }>([
@@ -805,25 +848,13 @@ ${JSON.stringify(candidates)}`;
         vscode.LanguageModelChatMessage.User(userPrompt),
       ], SCHEMA_CATALOG_PICKS);
       const picks = Array.isArray(response) ? response as unknown as typeof response['items'] : response.items ?? [];
-      const enriched = picks.map(pick => {
-        const rawItem = itemsRaw.find(item => isRecord(item) && item.id === pick.id);
-        const raw = isRecord(rawItem) ? rawItem : undefined;
-        return {
-          id: pick.id,
-          kind: toText(raw?.kind),
-          title: toText(raw?.title),
-          description: toText(raw?.description),
-          category: toText(raw?.category),
-          path: toText(raw?.path),
-          url: toText(raw?.url),
-          relevanceScore: 100,
-          matchReasons: [pick.reason],
-        };
-      }).filter(item => item.title);
+      const enriched = enrichCatalogPicks(picks);
 
       postResponse(this.webview, msg.id, { items: enriched });
     } catch (error: unknown) {
-      postError(this.webview, msg.id, error instanceof Error ? error.message : 'AI triage failed');
+      const fallbackPicks = buildFallbackCatalogPicks(shortlistedCandidates);
+      const enrichedFallback = enrichCatalogPicks(fallbackPicks);
+      postResponse(this.webview, msg.id, { items: enrichedFallback });
     }
   }
 
@@ -1134,15 +1165,6 @@ ${contextSection}`;
     };
   }
 
-  private async getGitHubAccessToken(requestAuth: boolean): Promise<string | undefined> {
-    try {
-      const session = await vscode.authentication.getSession('github', ['repo', 'read:org'], { createIfNone: requestAuth });
-      return session?.accessToken;
-    } catch {
-      return undefined;
-    }
-  }
-
   private isCopilotLogin(login: string | undefined): boolean {
     return login?.toLowerCase()?.includes('copilot') === true ||
       login === 'github-actions[bot]' ||
@@ -1308,7 +1330,13 @@ ${contextSection}`;
       return;
     }
 
-    const token = await this.getGitHubAccessToken(params.requestAuth === true);
+    let token: string | undefined;
+    try {
+      const session = await vscode.authentication.getSession('github', ['repo', 'read:org'], { createIfNone: params.requestAuth === true });
+      token = session?.accessToken;
+    } catch {
+      token = undefined;
+    }
     if (!token) {
       postResponse(this.webview, msg.id, {
         authRequired: true,

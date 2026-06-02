@@ -1,0 +1,3 @@
+export function getCustomizationSidebarNavHtml(): string {
+  return '<li><a href="#" data-page="company-skills"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.3"/><path d="M5 5h6M5 8h6M5 11h4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></span> Company Skill Finder<span class="nav-badge" id="badge-company-skills"></span></a></li>';
+}
