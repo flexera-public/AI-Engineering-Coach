@@ -399,11 +399,9 @@ export async function callLlmJson<T>(messages: vscode.LanguageModelChatMessage[]
     } catch (err) {
       lastError = err;
       const schemaName = jsonSchema?.name ?? 'none';
-      const preview = text.length > 400 ? `${text.slice(0, 200)} … ${text.slice(-200)}` : text;
       runtimeDebug('panel-llm', 'call-failed',
         `schema=${schemaName} attempt=${attempt + 1} structured=${options.modelOptions !== undefined} ` +
-        `model=${model.id} textLen=${text.length} error=${err instanceof Error ? err.message : String(err)} ` +
-        `text=${JSON.stringify(preview)}`);
+        `model=${model.id} textLen=${text.length} error=${err instanceof Error ? err.message : String(err)}`);
       if (err instanceof vscode.CancellationError) { cts.dispose(); throw err; }
       // Drop structured output so later attempts can recover in plain mode.
       if (jsonSchema && options.modelOptions && lastError instanceof Error &&
