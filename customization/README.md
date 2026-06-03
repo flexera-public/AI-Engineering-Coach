@@ -29,3 +29,13 @@ Current behavior:
 - shared built-in catalog defaults are intentionally empty
 - if no customization catalog areas are configured, the catalog falls back to an empty default set
 - real company repository values should stay only in `customization/sensitive/settings.json`
+
+## Install the Flexera customization
+
+1. Install the Flexera VSIX by following `AI-Engineering-Coach-Flexera install/INSTALL_VSIX.txt` or the installation section in the repository root `README.md`.
+2. Create or update `customization/sensitive/settings.json` with the local Flexera catalog settings. Use `customization/settings.template.json` as the tracked schema example.
+3. Reload VS Code after installing the VSIX or changing `customization/sensitive/settings.json` so the extension picks up the local customization.
+
+Notes:
+- keep real company-specific repository values only in `customization/sensitive/settings.json`
+- keep `customization/settings.template.json` generic and safe to commit
