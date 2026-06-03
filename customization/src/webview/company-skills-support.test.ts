@@ -37,11 +37,11 @@ describe('company-skills-support', () => {
       {
         kind: 'skill',
         id: 'skill-1',
-        title: 'CQRS',
+        title: 'Backend Skill',
         description: 'Skill',
         category: 'skill',
-        path: 'packages/software-engineer/skills/dotnet-cqrs-backend/SKILL.md',
-        url: 'https://example.test/skills/cqrs',
+        path: 'packages/software-engineer/skills/backend-skill/SKILL.md',
+        url: 'https://example.test/skills/backend-skill',
         relevanceScore: 0,
         matchReasons: [],
         collectionName: 'software-engineer',
@@ -69,11 +69,11 @@ describe('company-skills-support', () => {
       {
         kind: 'skill',
         id: 'skill-1',
-        title: 'CQRS',
+        title: 'Backend Skill',
         description: 'Skill',
         category: 'skill',
-        path: 'packages/software-engineer/skills/dotnet-cqrs-backend/SKILL.md',
-        url: 'https://example.test/skills/cqrs',
+        path: 'packages/software-engineer/skills/backend-skill/SKILL.md',
+        url: 'https://example.test/skills/backend-skill',
         relevanceScore: 0,
         matchReasons: [],
         collectionName: 'software-engineer',
@@ -81,11 +81,11 @@ describe('company-skills-support', () => {
       {
         kind: 'skill',
         id: 'skill-2',
-        title: 'ADR',
+        title: 'Architecture Skill',
         description: 'Skill',
         category: 'skill',
-        path: 'packages/architect/skills/docs-adr-writing/SKILL.md',
-        url: 'https://example.test/skills/adr',
+        path: 'packages/architect/skills/architecture-skill/SKILL.md',
+        url: 'https://example.test/skills/architecture-skill',
         relevanceScore: 0,
         matchReasons: [],
         collectionName: 'architect',
@@ -100,17 +100,17 @@ describe('company-skills-support', () => {
   it('deduplicates multi-package skills when All is selected', () => {
     const items = filterCompanyCapabilityItems([
       {
-        kind: 'skill', id: 'skill-1', title: 'Trace', description: 'Skill', category: 'skill',
-        path: 'skills/docs-trace-to-schematic/SKILL.md', url: 'https://example.test/skills/trace', relevanceScore: 0, matchReasons: [], collectionName: 'architect',
+        kind: 'skill', id: 'skill-1', title: 'Shared Skill', description: 'Skill', category: 'skill',
+        path: 'skills/shared-skill/SKILL.md', url: 'https://example.test/skills/shared-skill', relevanceScore: 0, matchReasons: [], collectionName: 'architect',
       },
       {
-        kind: 'skill', id: 'skill-2', title: 'Trace', description: 'Skill', category: 'skill',
-        path: 'skills/docs-trace-to-schematic/SKILL.md', url: 'https://example.test/skills/trace', relevanceScore: 0, matchReasons: [], collectionName: 'lead-engineer',
+        kind: 'skill', id: 'skill-2', title: 'Shared Skill', description: 'Skill', category: 'skill',
+        path: 'skills/shared-skill/SKILL.md', url: 'https://example.test/skills/shared-skill', relevanceScore: 0, matchReasons: [], collectionName: 'lead-engineer',
       },
     ], '');
 
     expect(items).toHaveLength(1);
-    expect(items[0]?.path).toBe('skills/docs-trace-to-schematic/SKILL.md');
+    expect(items[0]?.path).toBe('skills/shared-skill/SKILL.md');
   });
 
   it('uses configured catalog count when no specific area is selected', () => {
