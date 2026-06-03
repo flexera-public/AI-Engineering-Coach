@@ -107,6 +107,30 @@ function readJsonRecord(filePath: string): Record<string, unknown> | undefined {
   return isRecord(parsed) ? parsed : undefined;
 }
 
+function splitRepository(repository: string): { owner: string; repo: string } | undefined {
+  const parts = repository.split('/').map(part => part.trim()).filter(Boolean);
+  if (parts.length !== 2) return undefined;
+  return { owner: parts[0], repo: parts[1] };
+}
+
+function isValidGitHubPathSegment(value: string): boolean {
+  return /^[A-Za-z0-9._-]+$/.test(value);
+}
+
+function getCatalogRawUrl(params: Record<string, unknown>, catalogPath: string): string | undefined {
+  const source = isString(params.source) ? params.source : '';
+  if (source === 'github-repository') {
+    const repository = isString(params.repository) ? splitRepository(params.repository) : undefined;
+    const owner = isString(params.owner) ? params.owner.trim() : repository?.owner || '';
+    const repo = isString(params.repo) ? params.repo.trim() : repository?.repo || '';
+    const ref = isString(params.ref) ? params.ref.trim() : 'main';
+    if (!isValidGitHubPathSegment(owner) || !isValidGitHubPathSegment(repo) || !ref) return undefined;
+    return `https://raw.githubusercontent.com/${owner}/${repo}/${ref}/${catalogPath}`;
+  }
+
+  return `https://raw.githubusercontent.com/github/awesome-copilot/main/${catalogPath}`;
+}
+
 export class PanelRequestService {
   private matchesWorkspace(session: { workspaceId: string; workspaceName: string }, workspaceId?: string): boolean {
     if (!workspaceId) return true;
@@ -647,9 +671,13 @@ Respond with a JSON object: {"items":[{"title":"...","url":"https://...","type":
     }
 
     try {
-      const rawUrl = `https://raw.githubusercontent.com/github/awesome-copilot/main/${catalogPath}`;
+      const rawUrl = getCatalogRawUrl(params, catalogPath);
+      if (!rawUrl) {
+        postError(this.webview, msg.id, 'Invalid catalog URL');
+        return;
+      }
       const parsedUrl = new URL(rawUrl);
-      if (parsedUrl.hostname !== 'raw.githubusercontent.com' || !parsedUrl.pathname.startsWith('/github/awesome-copilot/')) {
+      if (parsedUrl.hostname !== 'raw.githubusercontent.com' || parsedUrl.protocol !== 'https:') {
         postError(this.webview, msg.id, 'Invalid catalog URL');
         return;
       }
