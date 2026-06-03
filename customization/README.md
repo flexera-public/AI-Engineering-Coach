@@ -30,6 +30,22 @@ Current behavior:
 - if no customization catalog areas are configured, the catalog falls back to an empty default set
 - real company repository values should stay only in `customization/sensitive/settings.json`
 
+## Company Skill Finder customization
+
+This fork replaces the user-facing Skill Finder experience with the company catalog experience implemented under `customization/src/webview`.
+
+Current fork behavior:
+- the main Skill Finder navigation opens the company-backed page instead of the community catalog page
+- the page still includes **Custom Skill Opportunities** so repeated prompt analysis remains available
+- company catalog matches come from the configured catalog `areas` in `customization/sensitive/settings.json`
+- the area selector controls which company repository is queried, and the Skill Group selector is populated from that area's `packages`
+- if no company catalog areas are configured, the page still shows Custom Skill Opportunities but returns no company catalog matches
+
+Implementation ownership:
+- `customization/src/webview/page-company-skills.ts` owns the combined Skill Finder UI for this fork
+- `customization/src/webview/company-skills-support.ts` owns company-specific area, package, and source-link behavior
+- shared docs under `docs/` remain generic; describe fork-only behavior here under `customization/`
+
 ## Install the Flexera customization
 
 1. Install the Flexera VSIX by following `AI-Engineering-Coach-Flexera install/INSTALL_VSIX.txt`.
