@@ -32,7 +32,7 @@ Current behavior:
 
 ## Install the Flexera customization
 
-1. Install the Flexera VSIX by following `AI-Engineering-Coach-Flexera install/INSTALL_VSIX.txt` or the installation section in the repository root `README.md`.
+1. Install the Flexera VSIX by following `AI-Engineering-Coach-Flexera install/INSTALL_VSIX.txt`.
 2. Create or update `customization/sensitive/settings.json` with the local Flexera catalog settings. Use `customization/settings.template.json` as the tracked schema example.
 3. Reload VS Code after installing the VSIX or changing `customization/sensitive/settings.json` so the extension picks up the local customization.
 

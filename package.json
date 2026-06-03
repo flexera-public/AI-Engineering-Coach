@@ -301,6 +301,7 @@
     "analyze:catalog-fetch": "node scripts/test-catalog-fetch.mjs",
     "smoke-test": "node scripts/smoke-test.mjs",
     "package": "node scripts/package-readme-swap.mjs",
+    "package:install-artifacts": "node scripts/update-install-artifacts.mjs",
     "spellcheck": "cspell \"src/**/*.ts\" \"docs/**/*.md\" \"*.md\"",
     "knip": "knip",
     "typecheck": "tsc --noEmit",
