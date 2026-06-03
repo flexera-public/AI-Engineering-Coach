@@ -1,10 +1,10 @@
 Name: ai-engineer-coach-0.1.0.vsix
 Path: path to folder\ai-engineer-coach-0.1.0.vsix
-Size: 4042221 bytes : 3947 KiB
-SHA256: 985abc56b7e1d5613d39cc3608a1f94ddec2a381a53ed46041c91805dbbe5a33
+Size: 4042747 bytes : 3948 KiB
+SHA256: 279ce88f2d3b2ad13086bfa7b619ec93b7e9aff0a85b19af3867df235b17090f
 
 Repository: flexera-public/AI-Engineering-Coach
 https://github.com/flexera-public/AI-Engineering-Coach
 
-Build from commit: 02e1214
-https://github.com/flexera-public/AI-Engineering-Coach/commit/02e1214985dbfd8264a50411584283e7160a32f4
+Build from commit: 3772c47
+https://github.com/flexera-public/AI-Engineering-Coach/commit/3772c4702525e725f2583a78b3c7cf6d7531fde0
