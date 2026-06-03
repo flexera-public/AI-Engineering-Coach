@@ -127,7 +127,7 @@ export interface ExtensionMethodMap extends RpcMethodMap {
   installSkill: { params: { filename: string; content: string }; result: { ok: boolean; path?: string; error?: string } };
   installCatalogItem: { params: { path: string; kind?: string; title?: string }; result: { content: string; filename: string; error?: string } };
   triageSkills: { params: Record<string, unknown>; result: { triaged: unknown[] } };
-  getCatalogAreas: { params: Record<string, unknown> | undefined; result: { areas: unknown[] } };
+  getCatalogAreas: { params: Record<string, unknown> | undefined; result: { areas: unknown[]; packages?: string[] } };
   getCatalogCollections: { params: Record<string, unknown> | undefined; result: { collections: unknown[] } };
   discoverCatalog: { params: Record<string, unknown> | undefined; result: { items: unknown[]; totalScanned: number } };
   triageCatalog: { params: Record<string, unknown>; result: { items: unknown[] } };

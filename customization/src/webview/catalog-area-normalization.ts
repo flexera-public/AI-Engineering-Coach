@@ -1,4 +1,5 @@
 import type { CatalogArea, CatalogAreaPreferences, CatalogSource } from '../core/types/catalog-types';
+import { defaultCompanySkillPackages, normalizeCompanySkillPackages } from './company-skills-support';
 
 const DEFAULT_CATALOG_REF = 'main';
 
@@ -31,8 +32,11 @@ function normalizeCatalogArea(value: unknown): CatalogArea | undefined {
 
   const name = typeof value.name === 'string' && value.name.trim() ? value.name.trim() : id;
   const url = typeof value.url === 'string' && value.url.trim() ? value.url.trim() : buildCatalogAreaUrl(repository, ref);
+  const packages = Array.isArray(value.packages)
+    ? normalizeCompanySkillPackages(value.packages)
+    : undefined;
 
-  return { id, name, repository, url, ref };
+  return { id, name, repository, url, ref, packages: packages && packages.length > 0 ? packages : [...defaultCompanySkillPackages] };
 }
 
 export function normalizeCatalogAreas(values: ReadonlyArray<unknown>): CatalogArea[] {

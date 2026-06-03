@@ -18,7 +18,7 @@ vi.mock('./company-catalog-service', () => ({
   discoverCompanyCatalogItems: discoverCompanyCatalogItemsMock,
 }));
 
-import { discoverCustomizationCatalogItems, loadCustomizationCatalogAreaPreferences } from './panel-customization';
+import { createCustomizationCatalogProvider, discoverCustomizationCatalogItems, loadCustomizationCatalogAreaPreferences, loadCustomizationCatalogSettings } from './panel-customization';
 
 const tempDirs: string[] = [];
 
@@ -66,45 +66,78 @@ describe('panel-customization', () => {
     }));
     fs.writeFileSync(path.join(workspace, 'customization', 'sensitive', 'settings.json'), JSON.stringify({
       areas: [
-        { id: 'sensitive-area', name: 'Sensitive Area', repository: 'org/sensitive', ref: 'main' },
+        { id: 'local-area', name: 'Local Area', repository: 'org/local', ref: 'main' },
       ],
     }));
 
     const prefs = loadCustomizationCatalogAreaPreferences(workspace);
 
-    expect(prefs.areas.map(area => area.id)).toEqual(['sensitive-area']);
-    expect(prefs.selectedAreaId).toBe('sensitive-area');
+    expect(prefs.areas.map(area => area.id)).toEqual(['local-area']);
+    expect(prefs.selectedAreaId).toBe('local-area');
+  });
+
+  it('loads packages from the configured area', () => {
+    const workspace = makeTempWorkspace();
+    fs.writeFileSync(path.join(workspace, 'customization', 'sensitive', 'settings.json'), JSON.stringify({
+      areas: [
+        { id: 'local-area', name: 'Local Area', repository: 'org/local', ref: 'main', packages: ['software-engineer', 'architect', 'devops_engineer'] },
+      ],
+    }));
+
+    const settings = loadCustomizationCatalogSettings(workspace);
+
+    expect(settings.areaPreferences.areas[0]?.packages).toEqual(['software-engineer', 'architect', 'devops-engineer']);
   });
 
   it('supports legacy catalogAreas in customization/sensitive/settings.json', () => {
     const workspace = makeTempWorkspace();
     fs.writeFileSync(path.join(workspace, 'customization', 'sensitive', 'settings.json'), JSON.stringify({
       catalogAreas: [
-        { id: 'legacy-sensitive-area', name: 'Legacy Sensitive Area', repository: 'org/legacy-sensitive', ref: 'main' },
+        { id: 'legacy-local-area', name: 'Legacy Local Area', repository: 'org/legacy-local', ref: 'main' },
       ],
     }));
 
     const prefs = loadCustomizationCatalogAreaPreferences(workspace);
 
-    expect(prefs.areas.map(area => area.id)).toEqual(['legacy-sensitive-area']);
-    expect(prefs.selectedAreaId).toBe('legacy-sensitive-area');
+    expect(prefs.areas.map(area => area.id)).toEqual(['legacy-local-area']);
+    expect(prefs.selectedAreaId).toBe('legacy-local-area');
   });
 
   it('delegates company discovery using catalog areas from customization settings', async () => {
     const workspace = makeTempWorkspace();
     fs.writeFileSync(path.join(workspace, 'customization', 'sensitive', 'settings.json'), JSON.stringify({
       areas: [
-        { id: 'sensitive-area', name: 'Sensitive Area', repository: 'org/sensitive', ref: 'main' },
+        { id: 'local-area', name: 'Local Area', repository: 'org/local', ref: 'main' },
       ],
     }));
     discoverCompanyCatalogItemsMock.mockResolvedValue([]);
 
-    await discoverCustomizationCatalogItems('sensitive-area', workspace);
+    await discoverCustomizationCatalogItems('local-area', workspace);
 
     expect(discoverCompanyCatalogItemsMock).toHaveBeenCalledWith(
-      [expect.objectContaining({ id: 'sensitive-area', repository: 'org/sensitive' })],
-      'sensitive-area',
+      [expect.objectContaining({ id: 'local-area', repository: 'org/local' })],
+      'local-area',
       expect.any(Function),
     );
+  });
+
+  it('returns the selected area packages from the customization provider', () => {
+    const workspace = makeTempWorkspace();
+    fs.writeFileSync(path.join(workspace, 'customization', 'sensitive', 'settings.json'), JSON.stringify({
+      areas: [
+        { id: 'local-area', name: 'Local Area', repository: 'org/local', ref: 'main', packages: ['architect'] },
+        { id: 'other-area', name: 'Other Area', repository: 'org/other', ref: 'main', packages: ['software-engineer'] },
+      ],
+    }));
+
+    const provider = createCustomizationCatalogProvider(() => workspace);
+
+    expect(provider.getCatalogAreas()).toEqual({
+      areas: [
+        expect.objectContaining({ id: 'local-area', repository: 'org/local', packages: ['architect'] }),
+        expect.objectContaining({ id: 'other-area', repository: 'org/other', packages: ['software-engineer'] }),
+      ],
+      packages: ['architect'],
+    });
   });
 });

@@ -758,7 +758,7 @@ Here are the top ${clusterSummaries.length} groups of similar prompts this devel
   }
 
   private handleGetCatalogAreas(msg: RequestMessage): void {
-    postResponse(this.webview, msg.id, { areas: this.catalogProvider?.getCatalogAreas() ?? [] });
+    postResponse(this.webview, msg.id, this.catalogProvider?.getCatalogAreas() ?? { areas: [], packages: [] });
   }
 
   private async handleTriageCatalog(msg: RequestMessage): Promise<void> {

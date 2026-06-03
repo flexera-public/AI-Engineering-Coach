@@ -4,8 +4,9 @@ import { rpc, COLORS, vscode } from '../../../src/webview/shared';
 import { html, render } from '../../../src/webview/render';
 import { consumeNavHint, updateNavBadge } from '../../../src/webview/app';
 import { getCatalogAreaPreferences, loadCatalogAreaPreferences } from './catalog-area-state';
+import type { CatalogArea } from '../core/types/catalog-types';
 import {
-  companySkillPackages,
+  defaultCompanySkillPackages,
   filterCompanyCapabilityItems,
   getCompanyCatalogScopeKey as getSelectedCompanyCatalogScopeKey,
   getSavedCompanyCapabilityGroup,
@@ -36,7 +37,26 @@ let lastTriaged: TriagedCluster[] = [];
 
 let activeFilter: DateFilter = {};
 let catalogAreaPrefs = getCatalogAreaPreferences();
+let companyPackages = [...defaultCompanySkillPackages];
 const companySkillCache = new Map<string, CompanySkillCacheData>();
+
+function getPackagesForArea(areaId: string, areas: readonly (CatalogArea & { packages?: string[] })[]): string[] {
+  const selectedArea = areas.find(area => area.id === areaId) ?? areas[0];
+  return selectedArea?.packages && selectedArea.packages.length > 0
+    ? [...selectedArea.packages]
+    : [...defaultCompanySkillPackages];
+}
+
+function updateCompanyPackageSelect(selectedCollection = ''): void {
+  const collectionSelect = document.getElementById('skCollectionSelect') as HTMLSelectElement | null;
+  if (!collectionSelect) return;
+
+  const nextSelected = companyPackages.includes(selectedCollection) ? selectedCollection : '';
+  collectionSelect.innerHTML = [
+    '<option value="">All</option>',
+    ...companyPackages.map(collection => `<option value="${collection}"${collection === nextSelected ? ' selected' : ''}>${humanizeCompanyCollection(collection)}</option>`),
+  ].join('');
+}
 
 function normalizeCompanyCatalogAreaPrefs(): void {
   if (catalogAreaPrefs.areas.length === 0) return;
@@ -91,11 +111,12 @@ export async function renderCompanySkills(container: HTMLElement, currentFilter:
   activeFilter = currentFilter;
   const [workspaces, catalogAreasResult] = await Promise.all([
     rpc<{ id: string; name: string }[]>('getWorkspaces'),
-    rpc<{ areas: { id: string; name: string; repository: string; url: string; ref?: string }[] }>('getCatalogAreas'),
+    rpc<{ areas: (CatalogArea & { packages?: string[] })[]; packages?: string[] }>('getCatalogAreas'),
   ]);
   catalogAreaPrefs = await loadCatalogAreaPreferences(catalogAreasResult.areas);
   normalizeCompanyCatalogAreaPrefs();
-  const selectedCollection = getSavedCompanyCapabilityGroup(vscode, COMPANY_SKILLS_PAGE_STATE_KEY);
+  companyPackages = getPackagesForArea(catalogAreaPrefs.selectedAreaId, catalogAreaPrefs.areas);
+  const selectedCollection = getSavedCompanyCapabilityGroup(vscode, COMPANY_SKILLS_PAGE_STATE_KEY, companyPackages);
 
   const filterWsId = currentFilter.workspaceId
     ? (workspaces.find(w => w.id === currentFilter.workspaceId)?.id || '')
@@ -144,7 +165,7 @@ export async function renderCompanySkills(container: HTMLElement, currentFilter:
           <span>Skills</span>
           <select id="skCollectionSelect" class="sk-select">
             <option value="">All</option>
-            ${companySkillPackages.map(collection => html`<option value="${collection}" selected="${collection === selectedCollection || undefined}">${humanizeCompanyCollection(collection)}</option>`)}
+            ${companyPackages.map(collection => html`<option value="${collection}" selected="${collection === selectedCollection || undefined}">${humanizeCompanyCollection(collection)}</option>`)}
           </select>
         </label>
       </div>
@@ -181,6 +202,8 @@ export async function renderCompanySkills(container: HTMLElement, currentFilter:
       catalogAreaPrefs = await handleCompanyAreaSelectionChange(
         catalogAreaPrefs,
         () => {
+          companyPackages = getPackagesForArea(catalogAreaPrefs.selectedAreaId, catalogAreaPrefs.areas);
+          updateCompanyPackageSelect(getSavedCompanyCapabilityGroup(vscode, COMPANY_SKILLS_PAGE_STATE_KEY, companyPackages));
           const cachedResults = getCompanySkillCache(activeFilter);
           if (cachedResults) {
             renderCachedResults(cachedResults.clusters, cachedResults.triaged, cachedResults.catalogMatches);
@@ -210,6 +233,7 @@ export async function renderCompanySkills(container: HTMLElement, currentFilter:
     });
   });
   updateCompanyCatalogSourceLink(catalogAreaPrefs, DEFAULT_CATALOG_BASE, DEFAULT_CATALOG_LABEL);
+  updateCompanyPackageSelect(selectedCollection);
 
   const cached = getCompanySkillCache(currentFilter);
   if (cached && cached.clusters.length > 0) {
@@ -328,7 +352,7 @@ async function loadCatalog(container: HTMLElement, clusters: WorkflowCluster[], 
     } as Record<string, unknown>);
 
     const itemsInScope = result.items;
-    const availableItems = filterCompanyCapabilityItems(itemsInScope, selectedCollection || '');
+    const availableItems = filterCompanyCapabilityItems(itemsInScope, selectedCollection || '', companyPackages);
 
     if (!availableItems || availableItems.length === 0) {
       render(html`<p class="sk-empty">No items found in the selected catalogs.</p>`, container);

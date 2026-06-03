@@ -7,9 +7,7 @@ type WebviewStateApi = {
   setState(state: unknown): void;
 };
 
-export const companySkillPackages = ['software-engineer', 'lead-engineer', 'architect', 'devops-engineer', 'automation-qa-engineer'];
-
-const COMPANY_SKILL_PACKAGE_SET = new Set(companySkillPackages);
+export const defaultCompanySkillPackages = ['software-engineer', 'lead-engineer', 'architect', 'devops-engineer', 'automation-qa-engineer'];
 
 const COMPANY_CAPABILITY_GROUP_ALLOWLIST: Record<string, { collections: string[]; categories: string[] }> = {
   'software-engineer': {
@@ -42,8 +40,15 @@ function normalizeCapabilityValue(value: string | undefined): string {
     .replaceAll(/\s+/g, ' ');
 }
 
-function isCompanyPackageSkill(item: CompanyCatalogItem): boolean {
-  return item.kind === 'skill' && COMPANY_SKILL_PACKAGE_SET.has(normalizeCapabilityValue(item.collectionName).replaceAll(' ', '-'));
+export function normalizeCompanySkillPackages(value: unknown): string[] {
+  if (!Array.isArray(value)) return [...defaultCompanySkillPackages];
+
+  const normalized = Array.from(new Set(value
+    .filter((entry): entry is string => typeof entry === 'string')
+    .map(entry => normalizeCapabilityValue(entry).replaceAll(' ', '-'))
+    .filter(Boolean)));
+
+  return normalized.length > 0 ? normalized : [...defaultCompanySkillPackages];
 }
 
 function getCapabilityTokens(capabilityGroup: string): { collections: Set<string>; categories: Set<string> } | null {
@@ -58,6 +63,11 @@ function getCapabilityTokens(capabilityGroup: string): { collections: Set<string
     collections: new Set(rule.collections.map(collection => normalizeCapabilityValue(collection))),
     categories: new Set(rule.categories.map(category => normalizeCapabilityValue(category))),
   };
+}
+
+function isCompanyPackageSkill(item: CompanyCatalogItem, packages: string[]): boolean {
+  const packageSet = new Set(packages.map(entry => normalizeCapabilityValue(entry).replaceAll(' ', '-')));
+  return item.kind === 'skill' && packageSet.has(normalizeCapabilityValue(item.collectionName).replaceAll(' ', '-'));
 }
 
 function getPageState(vscodeApi: WebviewStateApi, stateKey: string): { selectedCollection?: string } {
@@ -80,9 +90,13 @@ function savePageState(vscodeApi: WebviewStateApi, stateKey: string, next: { sel
   });
 }
 
-export function getSavedCompanyCapabilityGroup(vscodeApi: WebviewStateApi, stateKey: string): string {
+export function getSavedCompanyCapabilityGroup(
+  vscodeApi: WebviewStateApi,
+  stateKey: string,
+  packages: string[] = defaultCompanySkillPackages,
+): string {
   const selectedCollection = getPageState(vscodeApi, stateKey).selectedCollection || '';
-  return companySkillPackages.includes(selectedCollection) ? selectedCollection : '';
+  return packages.includes(selectedCollection) ? selectedCollection : '';
 }
 
 export function humanizeCompanyCollection(collection: string): string {
@@ -141,16 +155,23 @@ export function updateCompanyCatalogSourceLink(
 export function matchesCompanyCapabilityGroup(item: CompanyCatalogItem, capabilityGroup: string): boolean {
   if (!capabilityGroup) return true;
 
+  const normalizedGroup = normalizeCapabilityValue(capabilityGroup);
+  const collectionName = normalizeCapabilityValue(item.collectionName);
+  if (collectionName === normalizedGroup) return true;
+
   const tokens = getCapabilityTokens(capabilityGroup);
   if (!tokens) return false;
 
-  const collectionName = normalizeCapabilityValue(item.collectionName);
   const category = normalizeCapabilityValue(item.category);
   return tokens.collections.has(collectionName) || tokens.categories.has(category);
 }
 
-export function filterCompanyCapabilityItems(items: CompanyCatalogItem[], capabilityGroup: string): CompanyCatalogItem[] {
-  const packageSkills = items.filter(isCompanyPackageSkill);
+export function filterCompanyCapabilityItems(
+  items: CompanyCatalogItem[],
+  capabilityGroup: string,
+  packages: string[] = defaultCompanySkillPackages,
+): CompanyCatalogItem[] {
+  const packageSkills = items.filter(item => isCompanyPackageSkill(item, packages));
   if (!capabilityGroup) {
     const deduped = new Map<string, CompanyCatalogItem>();
     for (const item of packageSkills) {
