@@ -18,6 +18,7 @@ Files:
 
 Catalog settings format:
 - `sensitive/settings.json` may use `areas`
+- each entry in `areas` may define its own `packages` for the Company Skill Finder selector
 - repository values must be explicit `owner/repo` strings
 
 Precedence:

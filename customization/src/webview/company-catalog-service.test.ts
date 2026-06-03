@@ -8,9 +8,8 @@ describe('company-catalog-service', () => {
       if (url.includes('/git/trees/')) {
         return {
           tree: [
-            { path: 'skills/dotnet-cqrs-backend/SKILL.md', type: 'blob', sha: 'skill-sha' },
+            { path: 'skills/backend-skill/SKILL.md', type: 'blob', sha: 'skill-sha' },
             { path: 'packages/software-engineer/manifest.json', type: 'blob', sha: 'manifest-sha' },
-            { path: '.github/agents/nexus.agent.md', type: 'blob', sha: 'agent-sha' },
           ],
         } as T;
       }
@@ -20,7 +19,7 @@ describe('company-catalog-service', () => {
           encoding: 'base64',
           content: Buffer.from(JSON.stringify({
             skills: [
-              { name: 'dotnet-cqrs-backend', path: '../../skills/dotnet-cqrs-backend' },
+              { name: 'backend-skill', path: '../../skills/backend-skill' },
             ],
           })).toString('base64'),
         } as T;
@@ -31,17 +30,10 @@ describe('company-catalog-service', () => {
           encoding: 'base64',
           content: Buffer.from([
             '---',
-            'name: dotnet-cqrs-backend',
-            'description: CQRS handlers and validators',
+            'name: backend-skill',
+            'description: Backend implementation guidance',
             '---',
           ].join('\n')).toString('base64'),
-        } as T;
-      }
-
-      if (url.endsWith('/git/blobs/agent-sha')) {
-        return {
-          encoding: 'base64',
-          content: Buffer.from('# Nexus Agent').toString('base64'),
         } as T;
       }
 
@@ -49,20 +41,16 @@ describe('company-catalog-service', () => {
     };
 
     const items = await discoverCompanyCatalogItems([
-      { id: 'sam-ai-agents', name: 'sam-ai-agents', repository: 'SnowSoftwareGlobal/sam-ai-agents', url: 'https://github.com/SnowSoftwareGlobal/sam-ai-agents/tree/main', ref: 'main' },
-    ], 'sam-ai-agents', fetchGitHubJson);
+      { id: 'team-catalog', name: 'Team Catalog', repository: 'org/catalog', url: 'https://github.com/org/catalog/tree/main', ref: 'main' },
+    ], 'team-catalog', fetchGitHubJson);
 
-    expect(items).toEqual(expect.arrayContaining([
+    expect(items).toEqual([
       expect.objectContaining({
         kind: 'skill',
-        path: 'skills/dotnet-cqrs-backend/SKILL.md',
+        path: 'skills/backend-skill/SKILL.md',
         collectionName: 'software-engineer',
       }),
-      expect.objectContaining({
-        kind: 'agent',
-        path: '.github/agents/nexus.agent.md',
-      }),
-    ]));
+    ]);
   });
 
   it('supports generated .apm package skill folders', async () => {
@@ -80,8 +68,8 @@ describe('company-catalog-service', () => {
           encoding: 'base64',
           content: Buffer.from([
             '---',
-            'name: docs-adr-writing',
-            'description: ADR authoring and review',
+            'name: architecture-skill',
+            'description: Architecture guidance',
             '---',
           ].join('\n')).toString('base64'),
         } as T;
@@ -91,8 +79,8 @@ describe('company-catalog-service', () => {
     };
 
     const items = await discoverCompanyCatalogItems([
-      { id: 'sam-ai-agents', name: 'sam-ai-agents', repository: 'SnowSoftwareGlobal/sam-ai-agents', url: 'https://github.com/SnowSoftwareGlobal/sam-ai-agents/tree/main', ref: 'main' },
-    ], 'sam-ai-agents', fetchGitHubJson);
+      { id: 'team-catalog', name: 'Team Catalog', repository: 'org/catalog', url: 'https://github.com/org/catalog/tree/main', ref: 'main' },
+    ], 'team-catalog', fetchGitHubJson);
 
     expect(items).toEqual([
       expect.objectContaining({
@@ -108,7 +96,7 @@ describe('company-catalog-service', () => {
       if (url.includes('/git/trees/')) {
         return {
           tree: [
-            { path: 'skills/docs-trace-to-schematic/SKILL.md', type: 'blob', sha: 'skill-sha' },
+            { path: 'skills/shared-skill/SKILL.md', type: 'blob', sha: 'skill-sha' },
             { path: 'packages/architect/manifest.json', type: 'blob', sha: 'architect-manifest-sha' },
             { path: 'packages/lead-engineer/manifest.json', type: 'blob', sha: 'lead-manifest-sha' },
           ],
@@ -119,7 +107,7 @@ describe('company-catalog-service', () => {
         return {
           encoding: 'base64',
           content: Buffer.from(JSON.stringify({
-            skills: [{ name: 'docs-trace-to-schematic', path: '../../skills/docs-trace-to-schematic' }],
+            skills: [{ name: 'shared-skill', path: '../../skills/shared-skill' }],
           })).toString('base64'),
         } as T;
       }
@@ -128,7 +116,7 @@ describe('company-catalog-service', () => {
         return {
           encoding: 'base64',
           content: Buffer.from(JSON.stringify({
-            skills: [{ name: 'docs-trace-to-schematic', path: '../../skills/docs-trace-to-schematic' }],
+            skills: [{ name: 'shared-skill', path: '../../skills/shared-skill' }],
           })).toString('base64'),
         } as T;
       }
@@ -138,8 +126,8 @@ describe('company-catalog-service', () => {
           encoding: 'base64',
           content: Buffer.from([
             '---',
-            'name: docs-trace-to-schematic',
-            'description: Trace repo topology',
+            'name: shared-skill',
+            'description: Shared guidance',
             '---',
           ].join('\n')).toString('base64'),
         } as T;
@@ -149,10 +137,10 @@ describe('company-catalog-service', () => {
     };
 
     const items = await discoverCompanyCatalogItems([
-      { id: 'sam-ai-agents', name: 'sam-ai-agents', repository: 'SnowSoftwareGlobal/sam-ai-agents', url: 'https://github.com/SnowSoftwareGlobal/sam-ai-agents/tree/main', ref: 'main' },
-    ], 'sam-ai-agents', fetchGitHubJson);
+      { id: 'team-catalog', name: 'Team Catalog', repository: 'org/catalog', url: 'https://github.com/org/catalog/tree/main', ref: 'main' },
+    ], 'team-catalog', fetchGitHubJson);
 
-    expect(items.filter(item => item.path === 'skills/docs-trace-to-schematic/SKILL.md')).toEqual([
+    expect(items.filter(item => item.path === 'skills/shared-skill/SKILL.md')).toEqual([
       expect.objectContaining({ collectionName: 'architect' }),
       expect.objectContaining({ collectionName: 'lead-engineer' }),
     ]);

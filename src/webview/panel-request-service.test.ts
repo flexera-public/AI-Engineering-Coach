@@ -45,7 +45,7 @@ type PostedMessage = {
 
 function createService(
   catalogProvider?: {
-    getCatalogAreas(): unknown[];
+    getCatalogAreas(): { areas: unknown[]; packages?: string[] };
     discoverCatalogItems(params: Record<string, unknown>): Promise<unknown[] | undefined>;
   },
 ): { service: PanelRequestService; messages: PostedMessage[] } {
@@ -80,9 +80,10 @@ describe('PanelRequestService discoverCatalog', () => {
   });
 
   it('returns configured catalog areas from the injected provider', async () => {
-    const areas = [{ id: 'area-1', name: 'Area 1', repository: 'org/repo', url: 'https://github.com/org/repo/tree/main', ref: 'main' }];
+    const areas = [{ id: 'area-1', name: 'Area 1', repository: 'org/repo', url: 'https://github.com/org/repo/tree/main', ref: 'main', packages: ['architect'] }];
+    const packages = ['architect'];
     const { service, messages } = createService({
-      getCatalogAreas: () => areas,
+      getCatalogAreas: () => ({ areas, packages }),
       discoverCatalogItems: vi.fn().mockResolvedValue(undefined),
     });
     service.tryHandle({
@@ -97,7 +98,7 @@ describe('PanelRequestService discoverCatalog', () => {
     expect(messages[0]).toEqual({
       type: 'response',
       id: 'areas-1',
-      data: { areas },
+      data: { areas, packages },
     });
   });
 
@@ -121,7 +122,7 @@ describe('PanelRequestService discoverCatalog', () => {
       collectionName: 'architect',
     }]);
     const { service, messages } = createService({
-      getCatalogAreas: () => [],
+      getCatalogAreas: () => ({ areas: [] }),
       discoverCatalogItems,
     });
 

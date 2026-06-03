@@ -156,10 +156,7 @@ async function buildSkillPackageMap(
 function detectCatalogKind(filePath: string): CompanyCatalogItem['kind'] | undefined {
   if (/^packages\/[^/]+\/(?:\.apm\/)?skills\/[^/]+\/SKILL\.md$/i.test(filePath)) return 'skill';
   if (/^skills\/[^/]+\/SKILL\.md$/i.test(filePath)) return 'skill';
-  if (/^(?:\.github|\.agents|\.claude)\/skills\/[^/]+\/SKILL\.md$/i.test(filePath)) return 'skill';
-  if (/^\.github\/agents\/[^/]+\.agent\.md$/i.test(filePath)) return 'agent';
-  if (/^\.github\/instructions\/[^/]+\.instructions\.md$/i.test(filePath)) return 'instruction';
-  if (/^\.github\/hooks\/[^/]+\.json$/i.test(filePath)) return 'hook';
+  
   return undefined;
 }
 

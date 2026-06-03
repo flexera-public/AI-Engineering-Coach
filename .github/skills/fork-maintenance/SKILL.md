@@ -1,7 +1,18 @@
 ---
 name: fork-maintenance
-description: 'Simple fork maintenance workflow. Use when deciding whether a change belongs in shared src/ or customization/, preserving the current fork structure, isolating sensitive company data, and keeping the diff against upstream main small.'
-argument-hint: 'Describe the file, setting, asset, or naming you want to review or place correctly'
+description: >-
+  Simple fork maintenance workflow. Use when deciding whether a change belongs in
+  shared src/ or customization/, preserving the current fork structure,
+  isolating sensitive company data, replacing company-specific tracked names with
+  generic names, routing settings into customization/sensitive/settings.json,
+  and keeping the diff against upstream main small. Triggers: fork-only UI,
+  customization/, sensitive settings, company-specific fixtures, tracked naming,
+  repo-specific configuration, src vs customization placement.
+argument-hint: >-
+  Describe the file, setting, asset, fixture, or naming you want to review or
+  place correctly, for example: move fork-only UI into customization/src,
+  move sensitive settings into customization/sensitive/settings.json, or
+  replace tracked company-specific names with generic names
 user-invocable: true
 ---
 

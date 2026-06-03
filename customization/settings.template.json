@@ -4,7 +4,11 @@
       "id": "internal-catalog",
       "name": "internal-catalog",
       "repository": "your-org/private-catalog",
-      "ref": "main"
+      "ref": "main",
+      "packages": [
+        "engineer",
+        "qa"
+      ]
     }
   ]
 }
