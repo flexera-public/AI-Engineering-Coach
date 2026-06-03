@@ -9,6 +9,8 @@ type WebviewStateApi = {
 
 export const companySkillPackages = ['software-engineer', 'lead-engineer', 'architect', 'devops-engineer', 'automation-qa-engineer'];
 
+const COMPANY_SKILL_PACKAGE_SET = new Set(companySkillPackages);
+
 const COMPANY_CAPABILITY_GROUP_ALLOWLIST: Record<string, { collections: string[]; categories: string[] }> = {
   'software-engineer': {
     collections: ['software-engineer'],
@@ -38,6 +40,10 @@ function normalizeCapabilityValue(value: string | undefined): string {
     .toLowerCase()
     .replaceAll(/[-_]+/g, ' ')
     .replaceAll(/\s+/g, ' ');
+}
+
+function isCompanyPackageSkill(item: CompanyCatalogItem): boolean {
+  return item.kind === 'skill' && COMPANY_SKILL_PACKAGE_SET.has(normalizeCapabilityValue(item.collectionName).replaceAll(' ', '-'));
 }
 
 function getCapabilityTokens(capabilityGroup: string): { collections: Set<string>; categories: Set<string> } | null {
@@ -141,6 +147,18 @@ export function matchesCompanyCapabilityGroup(item: CompanyCatalogItem, capabili
   const collectionName = normalizeCapabilityValue(item.collectionName);
   const category = normalizeCapabilityValue(item.category);
   return tokens.collections.has(collectionName) || tokens.categories.has(category);
+}
+
+export function filterCompanyCapabilityItems(items: CompanyCatalogItem[], capabilityGroup: string): CompanyCatalogItem[] {
+  const packageSkills = items.filter(isCompanyPackageSkill);
+  if (!capabilityGroup) {
+    const deduped = new Map<string, CompanyCatalogItem>();
+    for (const item of packageSkills) {
+      if (!deduped.has(item.path)) deduped.set(item.path, item);
+    }
+    return Array.from(deduped.values());
+  }
+  return packageSkills.filter(item => matchesCompanyCapabilityGroup(item, capabilityGroup));
 }
 
 export async function handleCompanyAreaSelectionChange(

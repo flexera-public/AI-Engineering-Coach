@@ -16,6 +16,15 @@ type GitHubBlobResponse = {
   encoding?: string;
 };
 
+type PackageManifestSkill = {
+  name?: unknown;
+  path?: unknown;
+};
+
+type PackageManifest = {
+  skills?: PackageManifestSkill[];
+};
+
 type FetchGitHubJson = <T>(url: string, requestAuth: boolean) => Promise<T>;
 
 function isString(value: unknown): value is string {
@@ -79,7 +88,74 @@ function humanizePathName(filePath: string): string {
     .replace(/\b\w/g, match => match.toUpperCase());
 }
 
+function inferCollectionNameFromPath(filePath: string): string | undefined {
+  const match = filePath.match(/^packages\/([^/]+)\/(?:\.apm\/)?skills\/[^/]+\/SKILL\.md$/i);
+  return match?.[1]?.trim().toLowerCase();
+}
+
+function getSkillSlugFromPath(filePath: string): string | undefined {
+  const match = filePath.match(/(?:^|\/)skills\/([^/]+)\/SKILL\.md$/i);
+  return match?.[1]?.trim().toLowerCase();
+}
+
+function getPackageNameFromManifestPath(filePath: string): string | undefined {
+  const match = filePath.match(/^packages\/([^/]+)\/manifest\.json$/i);
+  return match?.[1]?.trim().toLowerCase();
+}
+
+function isPackageManifestPath(filePath: string): boolean {
+  return /^packages\/[^/]+\/manifest\.json$/i.test(filePath);
+}
+
+function addPackageToSkillMap(skillPackages: Map<string, Set<string>>, skillSlug: string | undefined, packageName: string | undefined): void {
+  if (!skillSlug || !packageName) return;
+
+  const existing = skillPackages.get(skillSlug) || new Set<string>();
+  existing.add(packageName);
+  skillPackages.set(skillSlug, existing);
+}
+
+async function buildSkillPackageMap(
+  files: GitHubTreeEntry[],
+  repository: { owner: string; repo: string },
+  fetchGitHubJson: FetchGitHubJson,
+): Promise<Map<string, Set<string>>> {
+  const manifestEntries = files.filter(entry => entry.type === 'blob' && isString(entry.path) && isString(entry.sha) && isPackageManifestPath(entry.path));
+  const skillPackages = new Map<string, Set<string>>();
+
+  await Promise.all(manifestEntries.map(async entry => {
+    const manifestPath = entry.path as string;
+    const packageName = getPackageNameFromManifestPath(manifestPath);
+    if (!packageName) return;
+
+    const blobUrl = `https://api.github.com/repos/${encodeURIComponent(repository.owner)}/${encodeURIComponent(repository.repo)}/git/blobs/${encodeURIComponent(entry.sha as string)}`;
+    const blob = await fetchGitHubJson<GitHubBlobResponse>(blobUrl, true);
+    if (blob.encoding !== 'base64' || !isString(blob.content)) return;
+
+    const content = Buffer.from(blob.content.replaceAll(/\s+/g, ''), 'base64').toString('utf8');
+
+    let parsed: PackageManifest;
+    try {
+      parsed = JSON.parse(content) as PackageManifest;
+    } catch {
+      return;
+    }
+
+    const skills = Array.isArray(parsed.skills) ? parsed.skills : [];
+    for (const skill of skills) {
+      const skillName = isString(skill.name) ? skill.name.trim().toLowerCase() : undefined;
+      const skillPath = isString(skill.path) ? skill.path.trim() : undefined;
+      const skillSlug = skillName || (skillPath ? getSkillSlugFromPath(`${skillPath.replace(/^\.\.\/\.\.\//, '')}/SKILL.md`) : undefined);
+      addPackageToSkillMap(skillPackages, skillSlug, packageName);
+    }
+  }));
+
+  return skillPackages;
+}
+
 function detectCatalogKind(filePath: string): CompanyCatalogItem['kind'] | undefined {
+  if (/^packages\/[^/]+\/(?:\.apm\/)?skills\/[^/]+\/SKILL\.md$/i.test(filePath)) return 'skill';
+  if (/^skills\/[^/]+\/SKILL\.md$/i.test(filePath)) return 'skill';
   if (/^(?:\.github|\.agents|\.claude)\/skills\/[^/]+\/SKILL\.md$/i.test(filePath)) return 'skill';
   if (/^\.github\/agents\/[^/]+\.agent\.md$/i.test(filePath)) return 'agent';
   if (/^\.github\/instructions\/[^/]+\.instructions\.md$/i.test(filePath)) return 'instruction';
@@ -104,7 +180,9 @@ function parseCatalogMetadata(filePath: string, kind: CompanyCatalogItem['kind']
     || humanizePathName(filePath);
   const description = getFrontmatterValue(frontmatter, 'description') || getBodyText(content) || `${title} ${kind}`;
   const category = getFrontmatterValue(frontmatter, 'category') || kind;
-  const collectionName = getFrontmatterValue(frontmatter, 'collection') || getFrontmatterValue(frontmatter, 'capabilityGroup');
+  const collectionName = getFrontmatterValue(frontmatter, 'collection')
+    || getFrontmatterValue(frontmatter, 'capabilityGroup')
+    || inferCollectionNameFromPath(filePath);
 
   return { title, description, category, collectionName };
 }
@@ -150,23 +228,36 @@ export async function discoverCompanyCatalogItems(
     const treeUrl = `https://api.github.com/repos/${encodeURIComponent(repository.owner)}/${encodeURIComponent(repository.repo)}/git/trees/${encodeURIComponent(ref)}?recursive=1`;
     const tree = await fetchGitHubJson<GitHubTreeResponse>(treeUrl, true);
     const files = Array.isArray(tree.tree) ? tree.tree : [];
+    const skillPackages = await buildSkillPackageMap(files, repository, fetchGitHubJson);
     const candidates = files.filter(entry => entry.type === 'blob' && isString(entry.path) && isString(entry.sha) && detectCatalogKind(entry.path));
 
     const items = await Promise.all(candidates.map(async entry => {
       const filePath = entry.path as string;
       const kind = detectCatalogKind(filePath);
-      if (!kind) return null;
+      if (!kind) return [];
 
       const blobUrl = `https://api.github.com/repos/${encodeURIComponent(repository.owner)}/${encodeURIComponent(repository.repo)}/git/blobs/${encodeURIComponent(entry.sha as string)}`;
       const blob = await fetchGitHubJson<GitHubBlobResponse>(blobUrl, true);
-      if (blob.encoding !== 'base64' || !isString(blob.content)) return null;
+      if (blob.encoding !== 'base64' || !isString(blob.content)) return [];
 
       const content = Buffer.from(blob.content.replaceAll(/\s+/g, ''), 'base64').toString('utf8');
       const metadata = parseCatalogMetadata(filePath, kind, content);
 
-      const item: CompanyCatalogItem = {
+      const inferredCollectionNames = metadata.collectionName
+        ? [metadata.collectionName]
+        : kind === 'skill'
+          ? [
+              ...new Set([
+                inferCollectionNameFromPath(filePath),
+                ...(getSkillSlugFromPath(filePath)
+                  ? Array.from(skillPackages.get(getSkillSlugFromPath(filePath) as string) || [])
+                  : []),
+              ].filter(isString)),
+            ]
+          : [];
+
+      const baseItem: Omit<CompanyCatalogItem, 'id'> = {
         kind,
-        id: `${area.id}:${kind}:${filePath}`,
         title: metadata.title,
         description: metadata.description,
         category: metadata.category,
@@ -180,12 +271,24 @@ export async function discoverCompanyCatalogItems(
         repo: repository.repo,
         ref,
         areaName: area.name,
-        ...(metadata.collectionName ? { collectionName: metadata.collectionName } : {}),
       };
-      return item;
+
+      if (inferredCollectionNames.length === 0) {
+        return [{
+          ...baseItem,
+          id: `${area.id}:${kind}:${filePath}`,
+          ...(metadata.collectionName ? { collectionName: metadata.collectionName } : {}),
+        } satisfies CompanyCatalogItem];
+      }
+
+      return inferredCollectionNames.map(collectionName => ({
+        ...baseItem,
+        id: `${area.id}:${kind}:${collectionName}:${filePath}`,
+        collectionName,
+      } satisfies CompanyCatalogItem));
     }));
 
-    return items.filter((item): item is CompanyCatalogItem => item !== null);
+    return items.flat();
   }));
 
   return groups.flat();

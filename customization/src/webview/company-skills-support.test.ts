@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { companySkillPackages, getCompanyCatalogScopeKey, humanizeCompanyCollection, matchesCompanyCapabilityGroup, updateCompanyCatalogSourceLink } from './company-skills-support';
+import { companySkillPackages, filterCompanyCapabilityItems, getCompanyCatalogScopeKey, humanizeCompanyCollection, matchesCompanyCapabilityGroup, updateCompanyCatalogSourceLink } from './company-skills-support';
 
 describe('company-skills-support', () => {
   it('keeps company capability packages stable', () => {
@@ -30,6 +30,87 @@ describe('company-skills-support', () => {
       matchReasons: [],
       collectionName: 'architect',
     }, 'architect')).toBe(true);
+  });
+
+  it('returns all skills from packages when All is selected', () => {
+    const items = filterCompanyCapabilityItems([
+      {
+        kind: 'skill',
+        id: 'skill-1',
+        title: 'CQRS',
+        description: 'Skill',
+        category: 'skill',
+        path: 'packages/software-engineer/skills/dotnet-cqrs-backend/SKILL.md',
+        url: 'https://example.test/skills/cqrs',
+        relevanceScore: 0,
+        matchReasons: [],
+        collectionName: 'software-engineer',
+      },
+      {
+        kind: 'agent',
+        id: 'agent-1',
+        title: 'Nexus',
+        description: 'Agent',
+        category: 'agent',
+        path: '.github/agents/nexus.agent.md',
+        url: 'https://example.test/agents/nexus',
+        relevanceScore: 0,
+        matchReasons: [],
+      },
+    ], '');
+
+    expect(items).toEqual([
+      expect.objectContaining({ collectionName: 'software-engineer', kind: 'skill' }),
+    ]);
+  });
+
+  it('maps selected capabilities to package skills only', () => {
+    const items = filterCompanyCapabilityItems([
+      {
+        kind: 'skill',
+        id: 'skill-1',
+        title: 'CQRS',
+        description: 'Skill',
+        category: 'skill',
+        path: 'packages/software-engineer/skills/dotnet-cqrs-backend/SKILL.md',
+        url: 'https://example.test/skills/cqrs',
+        relevanceScore: 0,
+        matchReasons: [],
+        collectionName: 'software-engineer',
+      },
+      {
+        kind: 'skill',
+        id: 'skill-2',
+        title: 'ADR',
+        description: 'Skill',
+        category: 'skill',
+        path: 'packages/architect/skills/docs-adr-writing/SKILL.md',
+        url: 'https://example.test/skills/adr',
+        relevanceScore: 0,
+        matchReasons: [],
+        collectionName: 'architect',
+      },
+    ], 'architect');
+
+    expect(items).toEqual([
+      expect.objectContaining({ collectionName: 'architect', kind: 'skill' }),
+    ]);
+  });
+
+  it('deduplicates multi-package skills when All is selected', () => {
+    const items = filterCompanyCapabilityItems([
+      {
+        kind: 'skill', id: 'skill-1', title: 'Trace', description: 'Skill', category: 'skill',
+        path: 'skills/docs-trace-to-schematic/SKILL.md', url: 'https://example.test/skills/trace', relevanceScore: 0, matchReasons: [], collectionName: 'architect',
+      },
+      {
+        kind: 'skill', id: 'skill-2', title: 'Trace', description: 'Skill', category: 'skill',
+        path: 'skills/docs-trace-to-schematic/SKILL.md', url: 'https://example.test/skills/trace', relevanceScore: 0, matchReasons: [], collectionName: 'lead-engineer',
+      },
+    ], '');
+
+    expect(items).toHaveLength(1);
+    expect(items[0]?.path).toBe('skills/docs-trace-to-schematic/SKILL.md');
   });
 
   it('uses configured catalog count when no specific area is selected', () => {

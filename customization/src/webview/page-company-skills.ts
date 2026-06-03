@@ -6,6 +6,7 @@ import { consumeNavHint, updateNavBadge } from '../../../src/webview/app';
 import { getCatalogAreaPreferences, loadCatalogAreaPreferences } from './catalog-area-state';
 import {
   companySkillPackages,
+  filterCompanyCapabilityItems,
   getCompanyCatalogScopeKey as getSelectedCompanyCatalogScopeKey,
   getSavedCompanyCapabilityGroup,
   getSelectedCompanyCapabilityGroup,
@@ -327,12 +328,7 @@ async function loadCatalog(container: HTMLElement, clusters: WorkflowCluster[], 
     } as Record<string, unknown>);
 
     const itemsInScope = result.items;
-    const filteredItems = selectedCollection
-      ? itemsInScope.filter(item => matchesCompanyCapabilityGroup(item, selectedCollection))
-      : itemsInScope;
-    const availableItems = filteredItems.length > 0 || !selectedCollection
-      ? filteredItems
-      : itemsInScope;
+    const availableItems = filterCompanyCapabilityItems(itemsInScope, selectedCollection || '');
 
     if (!availableItems || availableItems.length === 0) {
       render(html`<p class="sk-empty">No items found in the selected catalogs.</p>`, container);

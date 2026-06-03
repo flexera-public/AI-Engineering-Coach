@@ -17,3 +17,4 @@ test_output.txt
 scripts/verify-counts.ts
 marketing/
 customization/sensitive
+_dep/
