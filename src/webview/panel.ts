@@ -18,7 +18,7 @@ import { getDashboardHtml, getErrorHtml } from './panel-html';
 import { getRpcHandler } from './panel-rpc';
 import { PanelRequestService } from './panel-request-service';
 import { DashboardSidebarProvider } from './panel-sidebar';
-import { isRequestMessage, postResponse, errorResult } from './panel-shared';
+import { isRequestMessage, isSafeExternalHttpsUrl, postResponse, errorResult } from './panel-shared';
 import { createCustomizationCatalogProvider } from '../../customization/src/webview/panel-customization';
 
 export { DashboardSidebarProvider } from './panel-sidebar';
@@ -278,9 +278,11 @@ export class DashboardPanel {
     // Open external URLs from webview
     if (msg.method === 'openExternal') {
       const url = (msg.params as Record<string, unknown> | undefined)?.url;
-      if (typeof url === 'string') {
+      if (isSafeExternalHttpsUrl(url)) {
         void vscode.env.openExternal(vscode.Uri.parse(url));
         postResponse(this.panel.webview, msg.id, { ok: true });
+      } else {
+        postResponse(this.panel.webview, msg.id, errorResult('Invalid external URL'));
       }
       return;
     }

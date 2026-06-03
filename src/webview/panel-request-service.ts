@@ -25,8 +25,9 @@ import {
 } from './panel-llm';
 import { buildFallbackCatalogPicks, shortlistCatalogCandidates } from '../../customization/src/webview/panel-catalog-triage';
 import { getCatalogItems } from './panel-catalog';
+import { readTextWithByteLimit } from './fetch-utils';
 import { validateDateFilter } from './panel-rpc';
-import { isNumber, isOptionalString, isRecord, isString, postError, postEvent, postResponse, RequestMessage } from './panel-shared';
+import { isNumber, isOptionalString, isRecord, isString, postError, postEvent, postResponse, RequestMessage, safeJoinUnder } from './panel-shared';
 
 type CustomPanelMethodName =
   | 'createSkill'
@@ -50,7 +51,7 @@ type CustomPanelMethodName =
 
 type RequestHandler = (msg: RequestMessage) => void | Promise<void>;
 type CatalogProvider = {
-  getCatalogAreas(): unknown[];
+  getCatalogAreas(): { areas: unknown[]; packages: string[] };
   discoverCatalogItems(params: Record<string, unknown>): Promise<unknown[] | undefined>;
 };
 type QuizDifficulty = 'easy' | 'medium' | 'hard';
@@ -78,6 +79,12 @@ type QuizQuestion = {
 };
 
 const QUIZ_DIFFICULTIES: ReadonlySet<QuizDifficulty> = new Set(['easy', 'medium', 'hard']);
+
+const CATALOG_MAX_BYTES = 1024 * 1024;
+
+async function readCappedText(response: Response): Promise<string> {
+  return readTextWithByteLimit(response, CATALOG_MAX_BYTES, 'Catalog item too large');
+}
 
 function getStringArray(value: unknown, limit: number): string[] {
   return Array.isArray(value) ? value.filter(isString).slice(0, limit) : [];
@@ -135,8 +142,9 @@ export class PanelRequestService {
   ) {}
 
   tryHandle(msg: RequestMessage): boolean {
+    if (!Object.prototype.hasOwnProperty.call(this.handlers, msg.method)) return false;
     const handler = this.handlers[msg.method as CustomPanelMethodName];
-    if (!handler) return false;
+    if (typeof handler !== 'function') return false;
     void Promise.resolve(handler(msg)).catch((error: unknown) => {
       postError(this.webview, msg.id, error instanceof Error ? error.message : 'Internal error');
     });
@@ -645,18 +653,20 @@ Respond with a JSON object: {"items":[{"title":"...","url":"https://...","type":
         postError(this.webview, msg.id, 'Invalid catalog URL');
         return;
       }
-      const response = await fetch(parsedUrl.toString());
+      const response = await fetch(parsedUrl.toString(), { redirect: 'error' });
       if (!response.ok) throw new Error(`Failed to fetch: ${response.status}`);
-      const content = await response.text();
+      const content = await readCappedText(response);
 
       const homeDir = process.env.HOME || process.env.USERPROFILE;
       if (!homeDir) throw new Error('Cannot determine home directory');
       const subDir = kind === 'agent' ? 'agents' : 'skills';
       const slug = title.toLowerCase().replaceAll(/[^a-z0-9]+/g, '-').replaceAll(/-+/g, '-').replaceAll(/^-|-$/g, '');
       const filename = catalogPath.split('/').pop() || `${slug}.md`;
-      if (slug.includes('..') || filename.includes('..')) throw new Error('Invalid path');
+      const targetPath = safeJoinUnder(path.join(homeDir, '.agents', subDir), [slug, filename], { allowedExts: ['.md'] });
+      if (!targetPath) throw new Error('Invalid path');
 
-      const targetUri = vscode.Uri.file(`${homeDir}/.agents/${subDir}/${slug}/${filename}`);
+      const targetUri = vscode.Uri.file(targetPath);
+      await vscode.workspace.fs.createDirectory(vscode.Uri.file(path.dirname(targetPath)));
       await vscode.workspace.fs.writeFile(targetUri, Buffer.from(content, 'utf8'));
       postResponse(this.webview, msg.id, { content, filename: `${slug}/${filename}` });
     } catch (error: unknown) {
@@ -851,7 +861,7 @@ ${JSON.stringify(shortlistedCandidates)}`;
       const enriched = enrichCatalogPicks(picks);
 
       postResponse(this.webview, msg.id, { items: enriched });
-    } catch (error: unknown) {
+    } catch {
       const fallbackPicks = buildFallbackCatalogPicks(shortlistedCandidates);
       const enrichedFallback = enrichCatalogPicks(fallbackPicks);
       postResponse(this.webview, msg.id, { items: enrichedFallback });

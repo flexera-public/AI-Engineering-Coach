@@ -115,7 +115,7 @@ export function refreshCachedResultsForSelection(
   renderCachedResults: RenderCachedResults,
   doc: Document = document,
 ): void {
-  const cached = getSkillCache(activeFilter, getCatalogScopeKey(catalogAreaPrefs, doc));
+  const cached = getSkillCache(activeFilter);
   if (cached && cached.clusters.length > 0) {
     renderCachedResults(cached.clusters, cached.triaged, cached.catalogMatches);
     return;
