@@ -184,13 +184,6 @@ export async function renderCompanySkills(container: HTMLElement, currentFilter:
       </div>
     </div>
 
-    <section class="sk-section" id="customSection">
-      <h2 class="sk-section-title">Custom Skill Opportunities</h2>
-      <div id="customResults">
-        <p class="sk-empty">Select a workspace and click Analyze to find repeated patterns that could become skills.</p>
-      </div>
-    </section>
-
     <section class="sk-section" id="catalogSection">
       <h2 class="sk-section-title">Company Skills Catalog</h2>
       <p class="sk-section-desc">
@@ -200,6 +193,13 @@ export async function renderCompanySkills(container: HTMLElement, currentFilter:
       </p>
       <div id="catalogResults">
         <p class="sk-empty">${getCompanyCatalogEmptyStateMessage()}</p>
+      </div>
+    </section>
+
+    <section class="sk-section" id="customSection">
+      <h2 class="sk-section-title">Custom Skill Opportunities</h2>
+      <div id="customResults">
+        <p class="sk-empty">Select a workspace and click Analyze to find repeated patterns that could become skills.</p>
       </div>
     </section>
   `, container);
