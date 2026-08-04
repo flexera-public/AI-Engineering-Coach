@@ -50,6 +50,30 @@ code --install-extension ai-engineer-coach-*.vsix
 
 Then **AI Engineer Coach: Open Dashboard** from the command palette.
 
+## Install artifacts folder
+
+For a distributable handoff (e.g. sharing with someone who installs manually), regenerate the
+`AI-Engineering-Coach-Flexera install/` folder instead of packaging directly:
+
+```bash
+npm run package:install-artifacts
+```
+
+This runs [`scripts/update-install-artifacts.mjs`](../scripts/update-install-artifacts.mjs),
+which:
+
+1. Runs `npm run package` (skip with `--skip-package` if a fresh `.vsix` already exists at the
+   repo root).
+2. Copies the built `.vsix` into `AI-Engineering-Coach-Flexera install/`.
+3. Regenerates `AI-Engineering-Coach-Flexera install/SHA256.txt` with the artifact name, path,
+   size, SHA256 checksum, repository slug/URL, and the build commit (short SHA + URL).
+4. Regenerates `AI-Engineering-Coach-Flexera install/INSTALL_VSIX.txt` with install steps
+   referencing the current `.vsix` filename (UI install, PowerShell install, verification, and
+   PATH troubleshooting).
+
+Both files are fully regenerated each run — don't hand-edit them, since the next
+`package:install-artifacts` run overwrites them.
+
 ## Size budgets
 
 [`scripts/check-bundle-size.mjs`](../scripts/check-bundle-size.mjs) enforces:
@@ -91,3 +115,5 @@ fine to ship a `.vsix` whose embedded git SHA differs from the tag.
   GitHub Release instead.
 - Don't disable `--no-dependencies` "to be safe" — it will bloat the package past the 5 MB
   budget and double-ship code that's already bundled.
+- Don't hand-edit `INSTALL_VSIX.txt` or `SHA256.txt` in `AI-Engineering-Coach-Flexera install/` —
+  run `npm run package:install-artifacts` instead so the checksum and filenames stay in sync.
