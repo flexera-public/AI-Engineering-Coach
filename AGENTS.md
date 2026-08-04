@@ -208,4 +208,5 @@ body and an optional `# Tests` block. See [`docs/AUTHORING_RULES.md`](docs/AUTHO
 - Modify files under the user's session-log directories at runtime — this extension is
   strictly read-only with respect to user data.
 - Add telemetry, analytics, or remote logging.
+- Create pull requests against upstream repositories, including `microsoft/AI-Engineering-Coach`.
 - Skip hooks (`--no-verify`) or push with failing `npm run check`.
