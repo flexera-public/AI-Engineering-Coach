@@ -95,6 +95,33 @@ describe('parseCLIEventsFile', () => {
     });
   });
 
+  it('labels the harness as GitHub Copilot App when session.start carries remoteSteerable', () => {
+    const lines = [
+      JSON.stringify({
+        type: 'session.start',
+        timestamp: '2024-06-10T10:00:00.000Z',
+        data: { sessionId: 'app-session-1', startTime: '2024-06-10T10:00:00.000Z', selectedModel: 'gpt-4.1', remoteSteerable: false },
+      }),
+      JSON.stringify({
+        type: 'user.message',
+        timestamp: '2024-06-10T10:00:01.000Z',
+        data: { content: 'Write tests for parser.' },
+      }),
+      JSON.stringify({
+        id: 'assistant-1',
+        type: 'assistant.message',
+        timestamp: '2024-06-10T10:00:04.000Z',
+        data: { content: 'Added tests.', modelId: 'gpt-4.1', outputTokens: 321, toolRequests: [{ toolName: 'read_file' }] },
+      }),
+    ].join('\n');
+
+    withTempFile('events.jsonl', lines, (filePath) => {
+      const session = parseCLIEventsFile(filePath, 'ws-app', 'demo-workspace');
+      expect(session).toMatchObject({ sessionId: 'app-session-1', harness: 'GitHub Copilot App' });
+      expect(session?.requests[0].agentName).toBe('GitHub Copilot App');
+    });
+  });
+
   it('returns null when no assistant responses are present', () => {
     const lines = [
       JSON.stringify({ type: 'session.start', timestamp: '2024-06-10T10:00:00.000Z', data: { sessionId: 'cli-session-2' } }),
@@ -743,6 +770,71 @@ describe('parseSessionFile — skill detection', () => {
     });
   });
 });
+describe('tool-call metadata extraction (characterization)', () => {
+  function parseRequest(metadata: Record<string, unknown>): ReturnType<typeof parseSessionFile> {
+    const data = {
+      sessionId: 'tc',
+      requests: [{
+        requestId: 'r1',
+        timestamp: 1700000001000,
+        message: { text: 'go' },
+        response: [{ value: 'done' }],
+        result: { metadata },
+      }],
+    };
+    let out: ReturnType<typeof parseSessionFile> = null;
+    withTempFile('tc.json', JSON.stringify(data), (filePath) => {
+      out = parseSessionFile(filePath, 'ws', 'wp', 'Local Agent');
+    });
+    return out;
+  }
+
+  it('collects toolsUsed from toolCallRounds', () => {
+    const session = parseRequest({
+      toolCallRounds: [{ toolCalls: [{ name: 'read_file' }, { name: 'apply_patch' }] }],
+    });
+    expect(session!.requests[0].toolsUsed).toEqual(['read_file', 'apply_patch']);
+  });
+
+  it('collects toolsUsed from the toolCallResults branch too', () => {
+    const session = parseRequest({
+      toolCallResults: [{ toolCalls: [{ name: 'run_in_terminal' }] }],
+    });
+    expect(session!.requests[0].toolsUsed).toEqual(['run_in_terminal']);
+  });
+
+  it('parses toolCalls supplied as a JSON string', () => {
+    const session = parseRequest({
+      toolCallRounds: [{ toolCalls: JSON.stringify([{ name: 'edit_file' }]) }],
+    });
+    expect(session!.requests[0].toolsUsed).toEqual(['edit_file']);
+  });
+
+  it('skips malformed toolCalls JSON without throwing', () => {
+    const session = parseRequest({
+      toolCallRounds: [{ toolCalls: '{not valid json' }],
+    });
+    expect(session).not.toBeNull();
+    expect(session!.requests[0].toolsUsed).toEqual([]);
+  });
+
+  it('captures the last manage_todo_list snapshot', () => {
+    const session = parseRequest({
+      toolCallRounds: [
+        { toolCalls: [{ name: 'manage_todo_list', arguments: JSON.stringify({ todoList: [{ id: 1, title: 'first', status: 'completed' }] }) }] },
+        { toolCalls: [{ name: 'manage_todo_list', arguments: JSON.stringify({ todoList: [{ id: 2, title: 'second', status: 'in-progress' }] }) }] },
+      ],
+    });
+    expect(session!.requests[0].todoSnapshot).toEqual([
+      { id: 2, title: 'second', status: 'in-progress' },
+    ]);
+  });
+
+  it('returns null todoSnapshot when no manage_todo_list call is present', () => {
+    const session = parseRequest({ toolCallRounds: [{ toolCalls: [{ name: 'read_file' }] }] });
+    expect(session!.requests[0].todoSnapshot).toBeNull();
+  });
+});
 describe('harnessFromPath — VS Code Server', () => {
   it('returns "Local Agent (Server)" for .vscode-server paths', () => {
     expect(harnessFromPath('/home/alice/.vscode-server/data/User/workspaceStorage')).toBe('Local Agent (Server)');
@@ -768,6 +860,11 @@ describe('findVsCodeDirs — VS Code Server', () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ai-engineer-coach-vscode-'));
     const home = process.env.HOME;
     const userProfile = process.env.USERPROFILE;
+    // findVsCodeDirs() branches on process.platform: on win32 it reads editions from
+    // %APPDATA% and skips the .vscode-server block entirely. This test exercises the
+    // non-Windows layout (~/.config + ~/.vscode-server), so pin the platform rather than
+    // relying on the host OS — otherwise it (correctly) returns [] when run on Windows.
+    const realPlatform = process.platform;
     const expected = [
       path.join(root, '.config', 'Code', 'User', 'workspaceStorage'),
       path.join(root, '.config', 'Code - Insiders', 'User', 'workspaceStorage'),
@@ -779,12 +876,14 @@ describe('findVsCodeDirs — VS Code Server', () => {
 
     process.env.HOME = root;
     process.env.USERPROFILE = '';
+    Object.defineProperty(process, 'platform', { value: 'linux', configurable: true });
 
     try {
       expect(findVsCodeDirs()).toEqual(expected);
     } finally {
       process.env.HOME = home;
       process.env.USERPROFILE = userProfile;
+      Object.defineProperty(process, 'platform', { value: realPlatform, configurable: true });
       fs.rmSync(root, { recursive: true, force: true });
     }
   });
