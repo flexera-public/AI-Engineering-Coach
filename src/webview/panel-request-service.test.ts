@@ -22,6 +22,7 @@ vi.mock('vscode', () => ({
 vi.mock('./panel-llm', () => ({
   callLlm: vi.fn(),
   callLlmJson: callLlmJsonMock,
+  UNTRUSTED_DATA_GUARD: '',
   SCHEMA_CATALOG_PICKS: {},
   SCHEMA_CODE_REVIEW: {},
   SCHEMA_CONTEXT_REVIEW: {},
