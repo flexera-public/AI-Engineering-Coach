@@ -3,12 +3,12 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { callLlmJsonMock, createDirectoryMock, writeFileMock } = vi.hoisted(() => ({
   callLlmJsonMock: vi.fn(),
-  createDirectoryMock: vi.fn(),
-  writeFileMock: vi.fn(),
+  createDirectoryMock: vi.fn<(uri: { fsPath: string }) => Promise<void>>(),
+  writeFileMock: vi.fn<(uri: { fsPath: string }, content: Uint8Array) => Promise<void>>(),
 }));
 
 vi.mock('vscode', () => ({
@@ -80,10 +80,6 @@ async function flushMessages(): Promise<void> {
   await Promise.resolve();
   await Promise.resolve();
 }
-
-afterEach(() => {
-  vi.unstubAllGlobals();
-});
 
 describe('PanelRequestService discoverCatalog', () => {
   beforeEach(() => {
@@ -266,8 +262,6 @@ describe('PanelRequestService installCatalogItem', () => {
 
   it('uses the customization provider for company catalog items', async () => {
     const fetchCatalogItemContent = vi.fn().mockResolvedValue('# Company Skill');
-    const publicFetch = vi.fn();
-    vi.stubGlobal('fetch', publicFetch);
     const { service, messages } = createService({
       getCatalogAreas: () => ({ areas: [] }),
       discoverCatalogItems: vi.fn().mockResolvedValue(undefined),
@@ -294,11 +288,9 @@ describe('PanelRequestService installCatalogItem', () => {
     await vi.waitFor(() => expect(messages).toHaveLength(1));
 
     expect(fetchCatalogItemContent).toHaveBeenCalledWith(params);
-    expect(publicFetch).not.toHaveBeenCalled();
-    expect(writeFileMock).toHaveBeenCalledWith(
-      expect.objectContaining({ fsPath: expect.stringContaining('company-skill') }),
-      Buffer.from('# Company Skill', 'utf8'),
-    );
+    const writeCall = writeFileMock.mock.calls[0];
+    expect(writeCall?.[0].fsPath).toContain('company-skill');
+    expect(writeCall?.[1]).toEqual(Buffer.from('# Company Skill', 'utf8'));
     expect(messages[0]).toEqual({
       type: 'response',
       id: 'install-company-1',

@@ -655,7 +655,7 @@ ${UNTRUSTED_DATA_GUARD}`;
     }
 
     try {
-      let content = await this.catalogProvider?.fetchCatalogItemContent?.(params);
+      const content = await this.catalogProvider?.fetchCatalogItemContent?.(params);
       if (content === undefined) {
         throw new Error('Catalog source unavailable');
       }
