@@ -1,7 +1,7 @@
 ---
 title: "Skill Finder"
 weight: 20
-description: "Discover repeated prompts and matching community skills"
+description: "Discover repeated prompts and matching configured skills"
 ---
 
 # Skill Finder
@@ -20,11 +20,11 @@ Each opportunity shows:
 - Example prompts that triggered the detection
 - An **Install Skill** button that helps you create a reusable instruction file
 
-## Community Skills and Agents
+## Company Skills Catalog
 
-Below the custom opportunities, AI Engineer Coach queries the community skill catalog and displays matching entries. These are curated skills and agents maintained in the open-source `awesome-copilot` directory.
+Below the custom opportunities, AI Engineer Coach queries configured company catalogs and displays matching entries from the selected area and skill group.
 
-Each community match shows:
+Each company catalog match shows:
 
 - **Skill name** and category (e.g., VS CODE, TESTING, OTHER)
 - **Description** of what the skill does
@@ -33,4 +33,4 @@ Each community match shows:
 
 ## Configuration
 
-You can select the workspace and look-back period (1 month, 3 months, 6 months) to control the scope of the analysis. Click **Analyze** to refresh the findings.
+You can select the workspace, look-back period, catalog area, and skill group to control the scope of the analysis. Company catalogs are configured under `customization/sensitive/settings.json`. Click **Analyze** to refresh the findings.

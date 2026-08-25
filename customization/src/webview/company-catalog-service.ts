@@ -156,7 +156,7 @@ async function buildSkillPackageMap(
 function detectCatalogKind(filePath: string): CompanyCatalogItem['kind'] | undefined {
   if (/^packages\/[^/]+\/(?:\.apm\/)?skills\/[^/]+\/SKILL\.md$/i.test(filePath)) return 'skill';
   if (/^skills\/[^/]+\/SKILL\.md$/i.test(filePath)) return 'skill';
-  
+
   return undefined;
 }
 
@@ -189,7 +189,7 @@ export function isCompanyCatalogInstallRequest(params: Record<string, unknown>):
 }
 
 export async function fetchCompanyCatalogItemContent(
-  input: { repository: string; owner?: string; repo?: string; ref?: string; path: string },
+  input: { repository: string; owner?: string; repo?: string; ref?: string; blobSha?: string; path: string },
   fetchGitHubJson: FetchGitHubJson,
 ): Promise<string> {
   const repository = splitRepository(input.repository) || (input.owner && input.repo
@@ -197,9 +197,10 @@ export async function fetchCompanyCatalogItemContent(
     : undefined);
   if (!repository) throw new Error('Invalid repository');
 
-  const ref = input.ref || 'main';
-  const encodedPath = input.path.split('/').map(part => encodeURIComponent(part)).join('/');
-  const url = `https://api.github.com/repos/${encodeURIComponent(repository.owner)}/${encodeURIComponent(repository.repo)}/contents/${encodedPath}?ref=${encodeURIComponent(ref)}`;
+  const blobSha = input.blobSha?.trim();
+  const url = blobSha && /^[a-f0-9]{40,64}$/i.test(blobSha)
+    ? `https://api.github.com/repos/${encodeURIComponent(repository.owner)}/${encodeURIComponent(repository.repo)}/git/blobs/${encodeURIComponent(blobSha)}`
+    : `https://api.github.com/repos/${encodeURIComponent(repository.owner)}/${encodeURIComponent(repository.repo)}/contents/${input.path.split('/').map(part => encodeURIComponent(part)).join('/')}?ref=${encodeURIComponent(input.ref || 'main')}`;
   const result = await fetchGitHubJson<GitHubBlobResponse>(url, true);
   if (result.encoding !== 'base64' || !isString(result.content)) {
     throw new Error('Unsupported GitHub content encoding');
@@ -267,6 +268,7 @@ export async function discoverCompanyCatalogItems(
         owner: repository.owner,
         repo: repository.repo,
         ref,
+        blobSha: entry.sha as string,
         areaName: area.name,
       };
 

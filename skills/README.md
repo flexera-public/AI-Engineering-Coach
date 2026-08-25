@@ -18,7 +18,7 @@ auto-discoverable by popular AI coding harnesses without duplicating content:
 | Harness | Path | Notes |
 |---|---|---|
 | Claude Code | [`.claude/skills/`](../.claude/skills/) | Symlinks to files in this directory |
-| GitHub Copilot / awesome-copilot | [`.github/instructions/`](../.github/instructions/) | Symlinks to files in this directory |
+| GitHub Copilot | [`.github/instructions/`](../.github/instructions/) | Symlinks to files in this directory |
 
 When you add a skill, create the symlinks too:
 

@@ -10,6 +10,12 @@
 - Extract streaming JSONL readers, worker-host, and skipped-banner modules with
   full unit-test coverage
 
+## 0.1.4 — Flexera Build
+
+- Fix company skill installation to fetch from the configured GitHub repository
+  and revision
+- Exclude development, documentation, and local build data from the VSIX package
+
 ## 0.1.0 — First Release
 
 - Dashboard with timeline, output, and consumption views

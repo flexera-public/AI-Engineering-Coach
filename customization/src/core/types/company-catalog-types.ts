@@ -7,6 +7,7 @@ export interface CompanyCatalogItem extends CatalogItem {
   owner?: string;
   repo?: string;
   ref?: string;
+  blobSha?: string;
   areaName?: string;
   collectionName?: string;
 }
