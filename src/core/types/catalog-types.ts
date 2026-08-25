@@ -18,7 +18,7 @@ export interface SkillTriageResult {
   triaged: TriagedCluster[];
 }
 
-/* ---- Awesome Copilot Catalog ---- */
+/* ---- Skill Catalog ---- */
 export type CatalogItemKind = 'skill' | 'agent' | 'instruction' | 'hook';
 
 export interface CatalogItem {

@@ -5,11 +5,12 @@ import type { CatalogAreaPreferences } from '../core/types/catalog-types';
 import type { CompanyCatalogItem } from '../core/types/company-catalog-types';
 import { defaultCompanySkillPackages, normalizeCompanySkillPackages } from './company-skills-support';
 import { getDefaultCatalogAreaPreferences, normalizeCatalogAreas, normalizeCatalogAreaPreferences } from './catalog-area-normalization';
-import { discoverCompanyCatalogItems } from './company-catalog-service';
+import { discoverCompanyCatalogItems, fetchCompanyCatalogItemContent, isCompanyCatalogInstallRequest } from './company-catalog-service';
 
 export interface CustomizationCatalogProvider {
   getCatalogAreas(): { areas: unknown[]; packages: string[] };
   discoverCatalogItems(params: Record<string, unknown>): Promise<unknown[] | undefined>;
+  fetchCatalogItemContent?(params: Record<string, unknown>): Promise<string | undefined>;
 }
 
 interface CatalogAreaConfigFile {
@@ -123,6 +124,17 @@ export function createCustomizationCatalogProvider(
       if (params.includeCompany !== true) return undefined;
       const areaId = typeof params.areaId === 'string' ? params.areaId : '';
       return await discoverCustomizationCatalogItems(areaId, getCustomizationRoot());
+    },
+    async fetchCatalogItemContent(params: Record<string, unknown>): Promise<string | undefined> {
+      if (!isCompanyCatalogInstallRequest(params)) return undefined;
+      return await fetchCompanyCatalogItemContent({
+        repository: params.repository as string,
+        owner: typeof params.owner === 'string' ? params.owner : undefined,
+        repo: typeof params.repo === 'string' ? params.repo : undefined,
+        ref: typeof params.ref === 'string' ? params.ref : undefined,
+        blobSha: typeof params.blobSha === 'string' ? params.blobSha : undefined,
+        path: typeof params.path === 'string' ? params.path : '',
+      }, fetchCustomizationGitHubJson);
     },
   };
 }

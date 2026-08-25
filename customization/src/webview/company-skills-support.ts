@@ -182,6 +182,22 @@ export function filterCompanyCapabilityItems(
   return packageSkills.filter(item => matchesCompanyCapabilityGroup(item, capabilityGroup));
 }
 
+export function restoreCompanyCatalogMetadata(
+  triagedItems: CompanyCatalogItem[],
+  sourceItems: CompanyCatalogItem[],
+): CompanyCatalogItem[] {
+  const sourceById = new Map(sourceItems.map(item => [item.id, item]));
+  return triagedItems.map(item => {
+    const definedTriageFields = Object.fromEntries(
+      Object.entries(item).filter(([, value]) => value !== undefined),
+    ) as Partial<CompanyCatalogItem>;
+    return {
+      ...sourceById.get(item.id),
+      ...definedTriageFields,
+    } as CompanyCatalogItem;
+  });
+}
+
 export async function handleCompanyAreaSelectionChange(
   catalogAreaPrefs: CatalogAreaPreferences,
   onSelectionChanged: () => void,

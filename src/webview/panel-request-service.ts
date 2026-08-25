@@ -26,8 +26,6 @@ import {
   SCHEMA_TRIAGE,
 } from './panel-llm';
 import { buildFallbackCatalogPicks, shortlistCatalogCandidates } from '../../customization/src/webview/panel-catalog-triage';
-import { getCatalogItems } from './panel-catalog';
-import { readTextWithByteLimit } from './fetch-utils';
 import { validateDateFilter } from './panel-rpc';
 import { isNumber, isOptionalString, isRecord, isString, postError, postEvent, postResponse, RequestMessage, safeJoinUnder } from './panel-shared';
 
@@ -55,6 +53,7 @@ type RequestHandler = (msg: RequestMessage) => void | Promise<void>;
 type CatalogProvider = {
   getCatalogAreas(): { areas: unknown[]; packages: string[] };
   discoverCatalogItems(params: Record<string, unknown>): Promise<unknown[] | undefined>;
+  fetchCatalogItemContent?(params: Record<string, unknown>): Promise<string | undefined>;
 };
 type QuizDifficulty = 'easy' | 'medium' | 'hard';
 type QuizRequestContext = {
@@ -81,12 +80,6 @@ type QuizQuestion = {
 };
 
 const QUIZ_DIFFICULTIES: ReadonlySet<QuizDifficulty> = new Set(['easy', 'medium', 'hard']);
-
-const CATALOG_MAX_BYTES = 1024 * 1024;
-
-async function readCappedText(response: Response): Promise<string> {
-  return readTextWithByteLimit(response, CATALOG_MAX_BYTES, 'Catalog item too large');
-}
 
 function getStringArray(value: unknown, limit: number): string[] {
   return Array.isArray(value) ? value.filter(isString).slice(0, limit) : [];
@@ -662,15 +655,10 @@ ${UNTRUSTED_DATA_GUARD}`;
     }
 
     try {
-      const rawUrl = `https://raw.githubusercontent.com/github/awesome-copilot/main/${catalogPath}`;
-      const parsedUrl = new URL(rawUrl);
-      if (parsedUrl.hostname !== 'raw.githubusercontent.com' || !parsedUrl.pathname.startsWith('/github/awesome-copilot/')) {
-        postError(this.webview, msg.id, 'Invalid catalog URL');
-        return;
+      const content = await this.catalogProvider?.fetchCatalogItemContent?.(params);
+      if (content === undefined) {
+        throw new Error('Catalog source unavailable');
       }
-      const response = await fetch(parsedUrl.toString(), { redirect: 'error' });
-      if (!response.ok) throw new Error(`Failed to fetch: ${response.status}`);
-      const content = await readCappedText(response);
 
       const homeDir = process.env.HOME || process.env.USERPROFILE;
       if (!homeDir) throw new Error('Cannot determine home directory');
@@ -771,13 +759,7 @@ Here are the top ${clusterSummaries.length} groups of similar prompts this devel
         ? await this.catalogProvider.discoverCatalogItems(params)
         : undefined;
 
-      const items = customItems
-        ? customItems
-        : (await getCatalogItems()).map(item => ({
-          ...item,
-          relevanceScore: 0,
-          matchReasons: [],
-        }));
+      const items = customItems ?? [];
       postResponse(this.webview, msg.id, { items, totalScanned: items.length });
     } catch (error: unknown) {
       postError(this.webview, msg.id, error instanceof Error ? error.message : 'Failed to fetch catalog');

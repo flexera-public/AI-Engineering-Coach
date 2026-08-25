@@ -1,8 +1,28 @@
 import { describe, expect, it } from 'vitest';
 
-import { discoverCompanyCatalogItems } from './company-catalog-service';
+import { discoverCompanyCatalogItems, fetchCompanyCatalogItemContent } from './company-catalog-service';
 
 describe('company-catalog-service', () => {
+  it('fetches install content by the immutable blob SHA', async () => {
+    const blobSha = 'a'.repeat(40);
+    let requestedUrl = '';
+    const content = await fetchCompanyCatalogItemContent({
+      repository: 'org/catalog',
+      ref: 'main',
+      path: 'skills/backend-skill/SKILL.md',
+      blobSha,
+    }, async <T>(url: string): Promise<T> => {
+      requestedUrl = url;
+      return {
+        encoding: 'base64',
+        content: Buffer.from('# Backend Skill').toString('base64'),
+      } as T;
+    });
+
+    expect(requestedUrl).toBe(`https://api.github.com/repos/org/catalog/git/blobs/${blobSha}`);
+    expect(content).toBe('# Backend Skill');
+  });
+
   it('discovers top-level skills and maps them to packages from package manifests', async () => {
     const fetchGitHubJson = async <T>(url: string): Promise<T> => {
       if (url.includes('/git/trees/')) {
@@ -48,6 +68,7 @@ describe('company-catalog-service', () => {
       expect.objectContaining({
         kind: 'skill',
         path: 'skills/backend-skill/SKILL.md',
+        blobSha: 'skill-sha',
         collectionName: 'software-engineer',
       }),
     ]);

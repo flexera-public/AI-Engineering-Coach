@@ -5,14 +5,24 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { getCatalogItemsMock, callLlmJsonMock } = vi.hoisted(() => ({
-  getCatalogItemsMock: vi.fn(),
+const { callLlmJsonMock, createDirectoryMock, writeFileMock } = vi.hoisted(() => ({
   callLlmJsonMock: vi.fn(),
+  createDirectoryMock: vi.fn<(uri: { fsPath: string }) => Promise<void>>(),
+  writeFileMock: vi.fn<(uri: { fsPath: string }, content: Uint8Array) => Promise<void>>(),
 }));
 
 vi.mock('vscode', () => ({
   authentication: {
     getSession: vi.fn(),
+  },
+  Uri: {
+    file: (fsPath: string) => ({ fsPath }),
+  },
+  workspace: {
+    fs: {
+      createDirectory: createDirectoryMock,
+      writeFile: writeFileMock,
+    },
   },
   LanguageModelChatMessage: {
     User: (content: string) => ({ content }),
@@ -32,10 +42,6 @@ vi.mock('./panel-llm', () => ({
   SCHEMA_TRIAGE: {},
 }));
 
-vi.mock('./panel-catalog', () => ({
-  getCatalogItems: getCatalogItemsMock,
-}));
-
 import { PanelRequestService } from './panel-request-service';
 
 type PostedMessage = {
@@ -48,6 +54,7 @@ function createService(
   catalogProvider?: {
     getCatalogAreas(): { areas: unknown[]; packages?: string[] };
     discoverCatalogItems(params: Record<string, unknown>): Promise<unknown[] | undefined>;
+    fetchCatalogItemContent?(params: Record<string, unknown>): Promise<string | undefined>;
   },
 ): { service: PanelRequestService; messages: PostedMessage[] } {
   const messages: PostedMessage[] = [];
@@ -76,7 +83,6 @@ async function flushMessages(): Promise<void> {
 
 describe('PanelRequestService discoverCatalog', () => {
   beforeEach(() => {
-    getCatalogItemsMock.mockReset();
     callLlmJsonMock.mockReset();
   });
 
@@ -137,7 +143,6 @@ describe('PanelRequestService discoverCatalog', () => {
     await flushMessages();
 
     expect(discoverCatalogItems).toHaveBeenCalledWith({ includeCompany: true, areaId: 'area-1' });
-    expect(getCatalogItemsMock).not.toHaveBeenCalled();
     expect(messages[0]).toEqual({
       type: 'response',
       id: 'company-1',
@@ -165,17 +170,7 @@ describe('PanelRequestService discoverCatalog', () => {
     });
   });
 
-  it('returns public catalog items when includeCompany is not requested', async () => {
-    getCatalogItemsMock.mockResolvedValue([{
-      kind: 'skill',
-      id: 'skill:demo',
-      title: 'Demo',
-      description: 'Public catalog item',
-      category: 'General',
-      path: 'skills/demo/SKILL.md',
-      url: 'https://awesome-copilot.github.com/skills/#demo',
-    }]);
-
+  it('returns an empty catalog when no configured provider handles the request', async () => {
     const { service, messages } = createService();
     service.tryHandle({
       type: 'request',
@@ -186,23 +181,12 @@ describe('PanelRequestService discoverCatalog', () => {
 
     await flushMessages();
 
-    expect(getCatalogItemsMock).toHaveBeenCalledOnce();
     expect(messages[0]).toEqual({
       type: 'response',
       id: 'public-1',
       data: {
-        items: [{
-          kind: 'skill',
-          id: 'skill:demo',
-          title: 'Demo',
-          description: 'Public catalog item',
-          category: 'General',
-          path: 'skills/demo/SKILL.md',
-          url: 'https://awesome-copilot.github.com/skills/#demo',
-          relevanceScore: 0,
-          matchReasons: [],
-        }],
-        totalScanned: 1,
+        items: [],
+        totalScanned: 0,
       },
     });
   });
@@ -265,6 +249,54 @@ describe('PanelRequestService discoverCatalog', () => {
           relevanceScore: 100,
           matchReasons: ['Matched your repeated workflow signals: release, packaging, automation.'],
         }],
+      },
+    });
+  });
+});
+
+describe('PanelRequestService installCatalogItem', () => {
+  beforeEach(() => {
+    createDirectoryMock.mockReset();
+    writeFileMock.mockReset();
+  });
+
+  it('uses the customization provider for company catalog items', async () => {
+    const fetchCatalogItemContent = vi.fn().mockResolvedValue('# Company Skill');
+    const { service, messages } = createService({
+      getCatalogAreas: () => ({ areas: [] }),
+      discoverCatalogItems: vi.fn().mockResolvedValue(undefined),
+      fetchCatalogItemContent,
+    });
+    const params = {
+      path: 'packages/architect/.apm/skills/company-skill/SKILL.md',
+      kind: 'skill',
+      title: 'Company Skill',
+      source: 'github-repository',
+      repository: 'company/skills',
+      owner: 'company',
+      repo: 'skills',
+      ref: 'presentation',
+    };
+
+    service.tryHandle({
+      type: 'request',
+      id: 'install-company-1',
+      method: 'installCatalogItem',
+      params,
+    } as never);
+
+    await vi.waitFor(() => expect(messages).toHaveLength(1));
+
+    expect(fetchCatalogItemContent).toHaveBeenCalledWith(params);
+    const writeCall = writeFileMock.mock.calls[0];
+    expect(writeCall?.[0].fsPath).toContain('company-skill');
+    expect(writeCall?.[1]).toEqual(Buffer.from('# Company Skill', 'utf8'));
+    expect(messages[0]).toEqual({
+      type: 'response',
+      id: 'install-company-1',
+      data: {
+        content: '# Company Skill',
+        filename: 'company-skill/SKILL.md',
       },
     });
   });

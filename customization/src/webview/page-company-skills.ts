@@ -16,6 +16,7 @@ import {
   handleCompanyCollectionSelectionChange,
   humanizeCompanyCollection,
   matchesCompanyCapabilityGroup,
+  restoreCompanyCatalogMetadata,
   updateCompanyCatalogSourceLink,
 } from './company-skills-support';
 
@@ -541,7 +542,9 @@ async function loadCatalog(container: HTMLElement, clusters: WorkflowCluster[], 
         workspace: workspace || undefined,
       } as Record<string, unknown>);
 
-      const items = triaged.items && triaged.items.length > 0 ? triaged.items : [];
+      const items = triaged.items && triaged.items.length > 0
+        ? restoreCompanyCatalogMetadata(triaged.items as CompanyCatalogItem[], availableItems)
+        : [];
       if (items.length === 0) {
         render(html`<p class="sk-empty">No company catalog items matched your workflow patterns (${availableItems.length} reviewed).</p>`, container);
       } else {
@@ -587,6 +590,7 @@ function renderCatalogList(container: HTMLElement, items: CompanyCatalogItem[], 
             owner: trigger.dataset.owner || '',
             repo: trigger.dataset.repo || '',
             ref: trigger.dataset.ref || '',
+            blobSha: trigger.dataset.blobSha || '',
           } as Record<string, unknown>);
 
           trigger.textContent = 'Installed';
@@ -639,7 +643,7 @@ function renderCatalogCard(item: CompanyCatalogItem): ReturnType<typeof html> {
             ${item.matchReasons.map(reason => html`<span class="sk-reason">${reason}</span>`)}
           </div>` : null}
         <div class="sk-card-actions">
-          <button class="sk-btn sk-btn-install-catalog" data-path="${item.path}" data-kind="${item.kind}" data-title="${item.title}" data-source="${item.source || ''}" data-repository="${item.repository || ''}" data-owner="${item.owner || ''}" data-repo="${item.repo || ''}" data-ref="${item.ref || ''}">Install</button>
+          <button class="sk-btn sk-btn-install-catalog" data-path="${item.path}" data-kind="${item.kind}" data-title="${item.title}" data-source="${item.source || ''}" data-repository="${item.repository || ''}" data-owner="${item.owner || ''}" data-repo="${item.repo || ''}" data-ref="${item.ref || ''}" data-blob-sha="${item.blobSha || ''}">Install</button>
           <span class="sk-install-msg"></span>
         </div>
       </div>

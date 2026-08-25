@@ -3,6 +3,7 @@ src/**
 scripts/**
 tests/**
 docs/**
+_dep/**
 esbuild.mjs
 tsconfig.json
 vitest.config.mts
@@ -12,10 +13,12 @@ eslint.config.mjs
 .vscode/**
 .github/**
 .git/**
+.codegraph/**
 .gitignore
 .eslintignore
 
 # Artifacts
+AI-Engineering-Coach-Flexera install/**
 **/*.test.ts
 **/*.test.js
 **/*.map

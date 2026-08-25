@@ -2,7 +2,7 @@ AI Engineer Coach - Flexera
 VSIX Installation Guide
 
 Package created:
-path to folder\ai-engineer-coach-0.1.0.vsix
+path to folder\ai-engineer-coach-0.1.4.vsix
 
 Requirements:
 - VS Code 1.120.0 or newer
@@ -12,13 +12,13 @@ Option 1: Install from VS Code UI
 2. Press Ctrl+Shift+P.
 3. Run the command: Extensions: Install from VSIX...
 4. Select this file:
-   path to folder\ai-engineer-coach-0.1.0.vsix
+   path to folder\ai-engineer-coach-0.1.4.vsix
 5. Reload VS Code if prompted.
 
 Option 2: Install from PowerShell
 Run this command:
 
-code --install-extension "path to folder\ai-engineer-coach-0.1.0.vsix"
+code --install-extension "path to folder\ai-engineer-coach-0.1.4.vsix"
 
 Optional verification:
 - Open the Extensions view in VS Code.

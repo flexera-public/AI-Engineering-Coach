@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { defaultCompanySkillPackages, filterCompanyCapabilityItems, getCompanyCatalogScopeKey, getSavedCompanyCapabilityGroup, humanizeCompanyCollection, matchesCompanyCapabilityGroup, normalizeCompanySkillPackages, updateCompanyCatalogSourceLink } from './company-skills-support';
+import { defaultCompanySkillPackages, filterCompanyCapabilityItems, getCompanyCatalogScopeKey, getSavedCompanyCapabilityGroup, humanizeCompanyCollection, matchesCompanyCapabilityGroup, normalizeCompanySkillPackages, restoreCompanyCatalogMetadata, updateCompanyCatalogSourceLink } from './company-skills-support';
 
 describe('company-skills-support', () => {
   it('keeps default company capability packages stable', () => {
@@ -23,6 +23,38 @@ describe('company-skills-support', () => {
       'architect',
     ]);
     expect(normalizeCompanySkillPackages([])).toEqual(defaultCompanySkillPackages);
+  });
+
+  it('restores install metadata removed by catalog triage', () => {
+    const source = {
+      kind: 'skill' as const,
+      id: 'skill-1',
+      title: 'Company Skill',
+      description: 'Source description',
+      category: 'skill',
+      path: 'skills/company-skill/SKILL.md',
+      url: 'https://github.com/org/catalog/blob/main/skills/company-skill/SKILL.md',
+      relevanceScore: 0,
+      matchReasons: [],
+      repository: 'org/catalog',
+      ref: 'main',
+      blobSha: 'a'.repeat(40),
+    };
+
+    expect(restoreCompanyCatalogMetadata([{
+      ...source,
+      repository: undefined,
+      ref: undefined,
+      blobSha: undefined,
+      relevanceScore: 100,
+      matchReasons: ['Matched workflow'],
+    }], [source])).toEqual([expect.objectContaining({
+      repository: 'org/catalog',
+      ref: 'main',
+      blobSha: 'a'.repeat(40),
+      relevanceScore: 100,
+      matchReasons: ['Matched workflow'],
+    })]);
   });
 
   it('matches company capability group by collection name', () => {
